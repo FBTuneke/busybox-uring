@@ -173,7 +173,7 @@ ssize_t to_write = 0;
 uint32_t offset_read = 0;
 uint32_t offset_write = 0;
 off_t remaining = 0;
-bool first_loop = true;
+bool fds_need_to_be_set = true;
 int fd, old_fd;
 char *read_buffer_kernelspace_ptr, read_buffer_userspace_ptr;
 
@@ -204,7 +204,7 @@ int split(struct io_uring_bpf_ctx *ctx)
             offset_read += cqe.res; 
             read_buffer_userspace_ptr = context->read_buffer_userspace_base_ptr;
             if(!remaining) 
-                  first_loop = true;
+                  fds_need_to_be_set = true;
       }
 
       ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
@@ -212,9 +212,9 @@ int split(struct io_uring_bpf_ctx *ctx)
       {
             fd = cqe.res;
             
-            if(first_loop)
+            if(fds_need_to_be_set)
 		{
-			first_loop = false;
+			fds_need_to_be_set = false;
 			old_fd = fd;
 		}
             
@@ -314,9 +314,13 @@ int split(struct io_uring_bpf_ctx *ctx)
             sqe.flags = IOSQE_IO_DRAIN;
             iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
+            return 0;
+
       }
       else
       {
             iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, SPLIT_COMPLETE, 22222, 0); //Aus Kernelmodus zurückkehren und printen
       }
+
+      return 0;
 }
