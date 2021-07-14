@@ -1,0 +1,12 @@
+{
+      "files.associations": {
+            "libbpf.h": "c",
+            "liburing.h": "c",
+            "bpf.h": "c",
+            "bpf_helpers.h": "c",
+            "fcntl.h": "c",
+            "*.tcc": "c",
+            "istream": "c",
+            "streambuf": "c"
+      }
+}
