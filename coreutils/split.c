@@ -43,6 +43,7 @@
 
 #include "../include/common_bufsiz.h"
 
+#include "../include/libbb.h"
 #include "../include/split_common.h"
 #include "../../linux/tools/lib/bpf/libbpf.h"
 #include "../../linux/tools/lib/bpf/bpf.h"
@@ -64,27 +65,27 @@ static const struct suffix_mult split_suffixes[] = {
 /* Increment the suffix part of the filename.
  * Returns NULL if we are out of filenames.
  */
-static char *next_file(char *old, unsigned suffix_len)
-{
-	size_t end = strlen(old);
-	unsigned i = 1;
-	char *curr;
+// static char *next_file(char *old, unsigned suffix_len)
+// {
+// 	size_t end = strlen(old);
+// 	unsigned i = 1;
+// 	char *curr;
 
-	while (1) {
-		curr = old + end - i;
-		if (*curr < 'z') {
-			*curr += 1;
-			break;
-		}
-		i++;
-		if (i > suffix_len) {
-			return NULL;
-		}
-		*curr = 'a';
-	}
+// 	while (1) {
+// 		curr = old + end - i;
+// 		if (*curr < 'z') {
+// 			*curr += 1;
+// 			break;
+// 		}
+// 		i++;
+// 		if (i > suffix_len) {
+// 			return NULL;
+// 		}
+// 		*curr = 'a';
+// 	}
 
-	return old;
-}
+// 	return old;
+// }
 
 static void bump_memlock_rlimit(void)
 {
@@ -115,8 +116,7 @@ static size_t roundup_page(size_t sz)
       #define __NR_io_uring_register 427
 #endif
 
-int __sys_io_uring_register(int fd, unsigned opcode, const void *arg,
-                            unsigned nr_args)
+int __sys_io_uring_register(int fd, unsigned opcode, const void *arg, unsigned nr_args)
 {
 	return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
 }
@@ -133,29 +133,29 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	char *count_p;
 	const char *sfx;
 	off_t cnt = 1000;
-	off_t remaining = 0;
+	// off_t remaining = 0;
 	unsigned opt;
-	ssize_t bytes_read, to_write;
-	char *src;
+	// ssize_t bytes_read, to_write;
+	// char *src;
 
 	struct io_uring ring;
 	struct io_uring_sqe* sqe;
-	struct io_uring_cqe** cqes;
+	// struct io_uring_cqe** cqes;
 	struct io_uring_cqe* cqe;
 	int ret;
-	int fd = 0;
-	int oldFd = 1;
-	int offsetWrite = 0;
-	int offsetRead = 0;
-	int nrOfEntries = 0;
-	bool firstLoop = true;
-	int nrOfOpenFiles = 0;
-	int nrOfOpenedFiles = 0;
-	int nrOfCloses = 0;
-	int nrOfCurrentEntries = 0;
-	char* read_buffer;
+	// int fd = 0;
+	// int oldFd = 1;
+	// int offsetWrite = 0;
+	// int offsetRead = 0;
+	// int nrOfEntries = 0;
+	// bool firstLoop = true;
+	// int nrOfOpenFiles = 0;
+	// int nrOfOpenedFiles = 0;
+	// int nrOfCloses = 0;
+	// int nrOfCurrentEntries = 0;
+	// char* read_buffer;
 
-	read_buffer = malloc(READ_BUFFER_SIZE * sizeof(char));
+	// read_buffer = malloc(READ_BUFFER_SIZE * sizeof(char));
 
 	setup_common_bufsiz();
 
@@ -201,13 +201,13 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       uint32_t cq_sizes[4] = {128, 128, 128, 128};
       struct bpf_object *bpf_obj;
       struct bpf_program *bpf_prog;
-      int ret;
       const char *info, *name;
       uint32_t kversion;
       int prog_fds[NR_OF_BPF_PROGS];
       size_t map_sz;
       void *mmapped_context_map_ptr;
       ebpf_context_t *context_ptr;
+      int context_map_fd;
 
       memset(&params, 0, sizeof(params));
       params.nr_cq = ARRAY_SIZE(cq_sizes); //Anzahl von zusätzlichen Completion Queues???
@@ -259,7 +259,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             printf("bpf-program %i fd: %i\n", i, prog_fds[i]);
       } 
 
-      int context_map_fd = bpf_object__find_map_fd_by_name(bpf_obj, "context_map");
+      context_map_fd = bpf_object__find_map_fd_by_name(bpf_obj, "context_map");
       printf("context map fd: %i\n", context_map_fd);
    
       map_sz = roundup_page(1 * sizeof(ebpf_context_t));

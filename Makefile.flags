@@ -187,14 +187,17 @@ LDFLAGS += $(strip $(subst ",,$(CONFIG_EXTRA_LDFLAGS)))
 #"))
 endif
 
-#Versuche hier liburing einzubinden... weiß nicht ob ich das einfach nach usr/bin kopieren darf, bzw. Link erstellen darf
+#Versuche hier liburing einzubinden... weiï¿½ nicht ob ich das einfach nach usr/bin kopieren darf, bzw. Link erstellen darf
 #export LIBRARY_PATH = $LIBRARY_PATH:/fs/students/tuneke/busybox/busybox-1.30.1/liburing
 #export LD_LIBRARY_PATH = $LD_LIBRARY_PATH:/fs/students/tuneke/busybox/busybox-1.30.1/liburing
-export LIBRARY_PATH = $LIBRARY_PATH:/fs/students/tuneke/liburing/liburing-0.6/src
-export LD_LIBRARY_PATH = $LD_LIBRARY_PATH:/fs/students/tuneke/liburing/liburing-0.6/src
+#export LIBRARY_PATH = $LIBRARY_PATH:/fs/students/tuneke/liburing/liburing-0.6/src
+#export LD_LIBRARY_PATH = $LD_LIBRARY_PATH:/fs/students/tuneke/liburing/liburing-0.6/src
 
 
-CONFIG_EXTRA_LDLIBS=uring
+CONFIG_EXTRA_LDLIBS="uring bpf"
+#CONFIG_EXTRA_LDLIBS += bpf
+#CONFIG_EXTRA_LDLIBS += elf
+#CONFIG_EXTRA_LDLIBS += z
 
 ifneq ($(CONFIG_EXTRA_LDLIBS),)
 LDLIBS += $(strip $(subst ",,$(CONFIG_EXTRA_LDLIBS)))

@@ -7,6 +7,18 @@
             "fcntl.h": "c",
             "*.tcc": "c",
             "istream": "c",
-            "streambuf": "c"
+            "streambuf": "c",
+            "split_common.h": "c",
+            "libbb.h": "c",
+            "platform.h": "c",
+            "stat.h": "c",
+            "array": "c",
+            "deque": "c",
+            "string": "c",
+            "unordered_map": "c",
+            "vector": "c",
+            "string_view": "c",
+            "initializer_list": "c",
+            "cstring": "c"
       }
 }
