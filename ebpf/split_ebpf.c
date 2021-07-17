@@ -183,8 +183,7 @@ uint32_t to_write = 0;
 uint32_t offset_read = 0;
 uint32_t offset_write = 0;
 off_t remaining = 0;
-bool fds_need_to_be_set = true;
-int fd, old_fd;
+int fd;
 // char *read_buffer_kernelspace_ptr, *read_buffer_userspace_ptr;
 uint32_t global_read_buffer_offset = 0;
 int cnt = 0;
@@ -207,7 +206,7 @@ int split(struct io_uring_bpf_ctx *ctx)
       // pfx = context->pfx_buffer; 
 
       cnt++;
-      iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cnt, 111111, 0);
+      // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cnt, 111111, 0);
 
 
       ret = iouring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
@@ -218,9 +217,7 @@ int split(struct io_uring_bpf_ctx *ctx)
             // read_buffer_userspace_ptr = context->read_buffer_userspace_base_ptr;
             context->read_buffer_base_int = (longword)context->read_buffer; //TODO: Nur ein mal im Userspace machen.
             global_read_buffer_offset = 0;
-            offset_read += cqe.res; 
-            if(!remaining) 
-                  fds_need_to_be_set = true;
+            offset_read += cqe.res;
       }
       
       if(bytes_read > 0)
@@ -229,12 +226,6 @@ int split(struct io_uring_bpf_ctx *ctx)
             if(ret == 0) //Erfolg, cqe war da!
             {
                   fd = cqe.res;
-                  
-                  if(fds_need_to_be_set)
-                  {
-                        fds_need_to_be_set = false;
-                        old_fd = fd;
-                  }
 
                   // pfx = next_file(pfx, context->suffix_len, context->pfx_len);
 //==========next_file() begin. Kann ich nicht als Funktion implementieren, Zeigerarithmetik mit "normalem" Stack-Zeiger gefaellt dem Verifier nicht.
@@ -272,10 +263,16 @@ int split(struct io_uring_bpf_ctx *ctx)
                         //        //Aus Kernelmodus zurückkehren und printen
                         // }
 
+                        io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
+                        sqe.cq_idx = SINK_CQ_IDX;
+                        sqe.flags = IOSQE_IO_HARDLINK;
+				sqe.user_data = 187;
+				iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+                        
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
                         sqe.cq_idx = OPEN_CQ_IDX;
                         sqe.user_data = 6879;
-                        sqe.flags = IOSQE_IO_LINK; //Draining does not seem to work.
+                        sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
                         iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 				
                         io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
@@ -289,9 +286,9 @@ int split(struct io_uring_bpf_ctx *ctx)
 
                   uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
 
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, end, 88888, 0);
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, &context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], 88889, 0);
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, context->read_buffer_base_int, 88889, 0);
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, end, 88888, 0);
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, &context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], 88889, 0);
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, context->read_buffer_base_int, 88889, 0);
                   // return 0;
                   // volatile uint64_t char_index = global_read_buffer_index;
                   // volatile uint64_t n = 1;
@@ -443,20 +440,9 @@ int split(struct io_uring_bpf_ctx *ctx)
                         to_write = bytes_read;
                   }
 
-                  //File kann geschlossen werden, wenn neues geoeffnet
-			if (old_fd != fd)
-			{
-                        io_uring_prep_close(&sqe, old_fd); //TODO: vllt callback für close?
-                        sqe.cq_idx = DEFAULT_CQ_IDX;
-                        sqe.flags = IOSQE_IO_HARDLINK;
-				sqe.user_data = 187;
-				iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-				old_fd = fd;
-			}
-
                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
-			sqe.cq_idx = DEFAULT_CQ_IDX;
-                  sqe.flags = IOSQE_IO_HARDLINK;
+			sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.flags = IOSQE_IO_HARDLINK;                 
                   sqe.user_data = 1014;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));               
 
@@ -470,13 +456,26 @@ int split(struct io_uring_bpf_ctx *ctx)
                         break;
             }
 
+            io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
+		sqe.cq_idx = READ_CQ_IDX;
+            sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben und nach den Writes kommen
+            sqe.user_data = 9014;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
+            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
+            sqe.cq_idx = SINK_CQ_IDX;
+            sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.user_data = 9004;
+            // sqe.flags = IOSQE_IO_DRAIN;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
             // Fall: Buffer zu Ende gelesen und Datei zu Ende geschrieben. Tritt dies auf, dann greift die obere Abfrage (olFd != fd) nicht, da fd erst in dem n�chsten
 		// Schleifendurchlauf ge�ndert werden w�rde, den es aber nicht mehr gibt. Also muss hier noch mal geclosed werden.
 		if(!remaining) 
 		{
                   io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
                   sqe.cq_idx = SINK_CQ_IDX;
-                  sqe.flags = IOSQE_IO_HARDLINK;
+                  // sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
 			sqe.user_data = 587;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
@@ -488,18 +487,6 @@ int split(struct io_uring_bpf_ctx *ctx)
                   // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
 		}
-
-            io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
-		sqe.cq_idx = READ_CQ_IDX;
-            sqe.flags = IOSQE_IO_HARDLINK;
-            sqe.user_data = 9014;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-
-            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
-            sqe.cq_idx = SINK_CQ_IDX;
-            sqe.user_data = 9004;
-            // sqe.flags = IOSQE_IO_DRAIN;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
             return 0;
 
