@@ -303,7 +303,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             printf("get sqe #2 failed\n");
             return -1;
       }
-      io_uring_prep_openat(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+      io_uring_prep_openat(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = OPEN_CQ_IDX;
@@ -327,17 +327,19 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 		return -1;
 	}
 
+      printf("\n======START======\n");
+
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
-            printf("cqe->user_data: %llu\n", cqe->user_data);
+            printf("\ncqe->user_data: %llu\n", cqe->user_data);
             printf("cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == SPLIT_COMPLETE)
             {
-                  return EXIT_SUCCESS;
+                  break;
             }
             else if(cqe->user_data == SUFFIX_EXHAUSTED)
             {
@@ -345,6 +347,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
                   return EXIT_FAILURE;
             }
       }
+
+      printf("\n======END======\n");
 
       return EXIT_SUCCESS;
 
