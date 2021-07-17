@@ -327,7 +327,6 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 		return -1;
 	}
 
-
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
