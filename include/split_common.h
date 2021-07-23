@@ -5,10 +5,10 @@
 #include <stdbool.h>
 // #define read_buffer bb_common_bufsiz1
 // enum { READ_BUFFER_SIZE = COMMON_BUFSIZE - 1 };
-enum { READ_BUFFER_SIZE = 1024 };
+// enum { READ_BUFFER_SIZE = 1024 };
 // enum { READ_BUFFER_SIZE = 2048 };
 // enum { READ_BUFFER_SIZE = 3072 };
-// enum { READ_BUFFER_SIZE = 4096 };
+enum { READ_BUFFER_SIZE = 4096 };
 // enum { READ_BUFFER_SIZE = 5120 };
 // enum { READ_BUFFER_SIZE = 6144 };
 // enum { READ_BUFFER_SIZE = 10240 };
