@@ -186,7 +186,7 @@ off_t remaining = 0;
 int fd;
 // char *read_buffer_kernelspace_ptr, *read_buffer_userspace_ptr;
 uint32_t global_read_buffer_offset = 0;
-int cnt = 0;
+// int cnt = 0;
 
 SEC("iouring.s/split") //.s = .is_sleepable = true
 int split(struct io_uring_bpf_ctx *ctx)
@@ -205,7 +205,7 @@ int split(struct io_uring_bpf_ctx *ctx)
       } 
       // pfx = context->pfx_buffer; 
 
-      cnt++;
+      // cnt++;
       // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cnt, 111111, 0);
 
 
@@ -253,38 +253,35 @@ int split(struct io_uring_bpf_ctx *ctx)
                   offset_write = 0;
             }
 
+            if (!remaining)
+            {
+                  // if (!pfx) //suffixes exhausted -- 16.07.2021: ist jetzt oben in der Schleife von "next_file"-Funktionalitaet
+                  // {
+                  //        //Aus Kernelmodus zurückkehren und printen
+                  // }
 
-            for(int i = 0; i < READ_BUFFER_SIZE; i++) //Im schlechtesten Fall 1 Byte pro Zeile. Bounded Loop für Verifier..
-            {            
-                  if (!remaining) 
-			{
-				// if (!pfx) //suffixes exhausted -- 16.07.2021: ist jetzt oben in der Schleife von "next_file"-Funktionalitaet
-                        // {
-                        //        //Aus Kernelmodus zurückkehren und printen
-                        // }
+                  io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.flags = IOSQE_IO_HARDLINK;
+                  sqe.user_data = 187;
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
-                        io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
-                        sqe.cq_idx = SINK_CQ_IDX;
-                        sqe.flags = IOSQE_IO_HARDLINK;
-				sqe.user_data = 187;
-				iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-                        
-                        io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-                        sqe.cq_idx = OPEN_CQ_IDX;
-                        sqe.user_data = 6879;
-                        sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
-                        iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-				
-                        io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
-                        sqe.cq_idx = SINK_CQ_IDX;
-                        sqe.user_data = 2004;
-                        // sqe.flags = IOSQE_IO_HARDLINK;
-                        iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+                  io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+                  sqe.cq_idx = OPEN_CQ_IDX;
+                  sqe.user_data = 6879;
+                  sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
-                        return 0;
-			}
+                  io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.user_data = 2004;
+                  // sqe.flags = IOSQE_IO_HARDLINK;
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
-                  uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
+                  return 0;
+            }
+
+            uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
 
                   // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, end, 88888, 0);
                   // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, &context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], 88889, 0);
@@ -426,35 +423,44 @@ int split(struct io_uring_bpf_ctx *ctx)
 
 //================end memchr()
 
-                  if (end) //Zeilenende gefunden
-                  {
-                        --remaining;
-                        // to_write = (char*)char_ptr - read_buffer_kernelspace_ptr + 1;
-                        // to_write = bytes_read - (n - 1);
-                        // to_write = n;
-                        to_write = end - (context->read_buffer_base_int + global_read_buffer_offset) + 1;
-                        // return 0;
-                  }
-                  else
-                  {
-                        to_write = bytes_read;
-                  }
-
-                  io_uring_prep_rw(IORING_OP_WRITE, &sqe, fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
-			sqe.cq_idx = SINK_CQ_IDX;
-                  sqe.flags = IOSQE_IO_HARDLINK;                 
-                  sqe.user_data = 1014;
-                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));               
-
-			bytes_read -= to_write;
-                  global_read_buffer_offset += to_write;
-			// read_buffer_kernelspace_ptr += to_write;
-                  // read_buffer_userspace_ptr += to_write;
-			offset_write += to_write;
-
-                  if(!bytes_read)
-                        break;
+            if (end) //Zeilenende gefunden
+            {
+                  --remaining;
+                  // to_write = (char*)char_ptr - read_buffer_kernelspace_ptr + 1;
+                  // to_write = bytes_read - (n - 1);
+                  // to_write = n;
+                  to_write = end - (context->read_buffer_base_int + global_read_buffer_offset) + 1;
+                  // return 0;
             }
+            else
+            {
+                  to_write = bytes_read;
+            }
+
+            io_uring_prep_rw(IORING_OP_WRITE, &sqe, fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
+            sqe.cq_idx = SINK_CQ_IDX;
+            sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.user_data = 1014;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
+            bytes_read -= to_write;
+            global_read_buffer_offset += to_write;
+            // read_buffer_kernelspace_ptr += to_write;
+            // read_buffer_userspace_ptr += to_write;
+            offset_write += to_write;
+
+            if (bytes_read)  //Wieder einhängen - statt Schleife
+            {
+                  io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.user_data = 98801;
+                  // sqe.flags = IOSQE_IO_HARDLINK;
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
+                  return 0;              
+            }
+
+
 
             io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
 		sqe.cq_idx = READ_CQ_IDX;
