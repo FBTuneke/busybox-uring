@@ -202,7 +202,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       uint32_t cq_sizes[4] = {128, 128, 128, 128};
       struct bpf_object *bpf_obj;
       struct bpf_program *bpf_prog;
-      const char *info, *name;
+      const char *name_object_file, *name;
       uint32_t kversion;
       int prog_fds[NR_OF_BPF_PROGS];
       size_t map_sz;
@@ -243,8 +243,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      info = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
-      printf("info: %s\n", info);
+      name_object_file = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
+      printf("name_object_file: %s\n", name_object_file);
 
       kversion = bpf_object__kversion(bpf_obj);
       printf("kversion: %i\n", kversion);
@@ -358,10 +358,24 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       long seconds = end.tv_sec - begin.tv_sec;
       long microseconds = end.tv_usec - begin.tv_usec;
       double time_spent = seconds + microseconds*1e-6;
+
+      struct bpf_prog_info bpf_info = {};
+      uint32_t info_len = sizeof(bpf_info);
+
+      ret = bpf_obj_get_info_by_fd(prog_fds[0], &bpf_info, &info_len);
+	if(ret != 0)
+            printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
       
       // clock_t end = clock();
       // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
       printf("Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
+      printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
+      printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
+      printf("nr func info: %u\n", bpf_info.nr_func_info);
+      printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      printf("run count: %llu\n", bpf_info.run_cnt);
+      printf("run time ns: %llu\n", bpf_info.run_time_ns);
 
       printf("\n======END======\n");
 
