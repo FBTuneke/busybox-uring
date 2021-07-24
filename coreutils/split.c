@@ -48,6 +48,7 @@
 #include "../../linux/tools/lib/bpf/libbpf.h"
 #include "../../linux/tools/lib/bpf/bpf.h"
 #include "liburing.h"
+#include <time.h>
 
 #define NR_OF_BPF_PROGS 1
 
@@ -237,6 +238,11 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             return -1;
       }
 
+//------Zeitmessung start      
+      // clock_t begin = clock();
+      struct timeval begin, end;
+      gettimeofday(&begin, 0);
+
       info = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
       printf("info: %s\n", info);
 
@@ -327,8 +333,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 		return -1;
 	}
 
-      printf("\n======START======\n");
 
+      printf("\n======START======\n");
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
@@ -347,6 +353,15 @@ int split_main(int argc UNUSED_PARAM, char **argv)
                   return EXIT_FAILURE;
             }
       }
+
+      gettimeofday(&end, 0);
+      long seconds = end.tv_sec - begin.tv_sec;
+      long microseconds = end.tv_usec - begin.tv_usec;
+      double time_spent = seconds + microseconds*1e-6;
+      
+      // clock_t end = clock();
+      // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+      printf("Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
 
       printf("\n======END======\n");
 
