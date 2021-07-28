@@ -367,18 +367,38 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	if(ret != 0)
             printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
       
+      char *fullPath;
+      char *fileName = "/split-bpf-log.txt";
+      fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
+      strcpy(fullPath, getenv("HOME"));
+      strcat(fullPath, fileName);
+
+      FILE *f;
+      f = fopen(fullPath, "a");
+
       // clock_t end = clock();
       // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
       printf("Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
+      fprintf(f, "Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
       printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
+      fprintf(f, "Jited prog length: %u\n", bpf_info.jited_prog_len);
       printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
+      fprintf(f, "load time (ns since boottime): %llu\n", bpf_info.load_time);
       printf("nr func info: %u\n", bpf_info.nr_func_info);
+      fprintf(f, "nr func info: %u\n", bpf_info.nr_func_info);
       printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      fprintf(f, "nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
       printf("run count: %llu\n", bpf_info.run_cnt);
+      fprintf(f, "run count: %llu\n", bpf_info.run_cnt);
       printf("run time ns: %llu\n", bpf_info.run_time_ns);
+      fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
 
       printf("\n======END======\n");
+      fprintf(f, "\n======END======\n");
+
+      close(f);
 
       return EXIT_SUCCESS;
 
