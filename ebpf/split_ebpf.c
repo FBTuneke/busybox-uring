@@ -465,13 +465,20 @@ int split(struct io_uring_bpf_ctx *ctx)
             sqe.user_data = 9014;
             iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
+            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
+            sqe.cq_idx = SINK_CQ_IDX;
+            if(!remaining) sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.user_data = 9004;
+            // sqe.flags = IOSQE_IO_DRAIN;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
             // Fall: Buffer zu Ende gelesen und Datei zu Ende geschrieben. Tritt dies auf, dann greift die obere Abfrage (olFd != fd) nicht, da fd erst in dem n�chsten
 		// Schleifendurchlauf ge�ndert werden w�rde, den es aber nicht mehr gibt. Also muss hier noch mal geclosed werden.
 		if(!remaining) 
 		{
                   io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
                   sqe.cq_idx = SINK_CQ_IDX;
-                  sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
+                  // sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
 			sqe.user_data = 587;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
@@ -481,15 +488,7 @@ int split(struct io_uring_bpf_ctx *ctx)
                   // sqe.flags = IOSQE_IO_DRAIN; 
                   // sqe.user_data = 4778;
                   // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-
 		}
-
-            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
-            sqe.cq_idx = SINK_CQ_IDX;
-            // sqe.flags = IOSQE_IO_HARDLINK;
-            sqe.user_data = 9004;
-            // sqe.flags = IOSQE_IO_DRAIN;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
             return 0;
 
