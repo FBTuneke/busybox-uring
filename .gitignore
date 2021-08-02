@@ -63,3 +63,7 @@ TAGS
 # user-supplied scripts
 #
 /embed
+
+
+scripts/kconfig/lxdialog/lxdialog
+docs/busybox.1

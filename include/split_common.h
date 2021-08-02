@@ -8,10 +8,11 @@
 // enum { READ_BUFFER_SIZE = 1024 };
 // enum { READ_BUFFER_SIZE = 2048 };
 // enum { READ_BUFFER_SIZE = 3072 };
-enum { READ_BUFFER_SIZE = 4096 };
+// enum { READ_BUFFER_SIZE = 4096 };
 // enum { READ_BUFFER_SIZE = 5120 };
 // enum { READ_BUFFER_SIZE = 6144 };
 // enum { READ_BUFFER_SIZE = 10240 };
+enum { READ_BUFFER_SIZE = 16384 };
 // enum { READ_BUFFER_SIZE = 20480 };
 // enum { READ_BUFFER_SIZE = 40960 };
 // enum { READ_BUFFER_SIZE = 51200 };

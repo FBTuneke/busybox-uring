@@ -229,8 +229,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
       bump_memlock_rlimit();
 
-      // bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
-      bpf_obj = bpf_object__open("split_ebpf.o");
+      bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
+      // bpf_obj = bpf_object__open("split_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
       if(ret < 0)
@@ -398,7 +398,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       printf("\n======END======\n");
       fprintf(f, "\n======END======\n");
 
-      close(f);
+      fclose(f);
 
       return EXIT_SUCCESS;
 
