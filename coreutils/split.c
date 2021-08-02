@@ -232,6 +232,9 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
       // bpf_obj = bpf_object__open("split_ebpf.o");
 
+      struct timeval begin, end;
+      gettimeofday(&begin, 0);
+
       ret = bpf_object__load(bpf_obj);
       if(ret < 0)
       {
@@ -239,10 +242,10 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             return -1;
       }
 
-//------Zeitmessung start      
-      // clock_t begin = clock();
-      struct timeval begin, end;
-      gettimeofday(&begin, 0);
+      gettimeofday(&end, 0);
+      long seconds = end.tv_sec - begin.tv_sec;
+      long microseconds = end.tv_usec - begin.tv_usec;
+      double time_spent_loading_bpf_prog = seconds + microseconds*1e-6;
 
       name_object_file = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
       printf("name_object_file: %s\n", name_object_file);
@@ -278,7 +281,6 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       }
       context_ptr = (ebpf_context_t*) mmapped_context_map_ptr;
 
-
       context_ptr->suffix_len = suffix_len;
       context_ptr->pfx_len = strlen(sfx) + suffix_len;
       context_ptr->cnt = cnt;
@@ -292,6 +294,10 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             printf("Error __sys_io_uring_register, ret: %i\n", ret);
             return -1;
       }
+
+//------Zeitmessung start      
+      // clock_t begin = clock();
+      gettimeofday(&begin, 0);
 
       sqe = io_uring_get_sqe(&ring);
       if (!sqe)
@@ -356,9 +362,9 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       }
 
       gettimeofday(&end, 0);
-      long seconds = end.tv_sec - begin.tv_sec;
-      long microseconds = end.tv_usec - begin.tv_usec;
-      double time_spent = seconds + microseconds*1e-6;
+      seconds = end.tv_sec - begin.tv_sec;
+      microseconds = end.tv_usec - begin.tv_usec;
+      double time_spent_split = seconds + microseconds*1e-6;
 
       struct bpf_prog_info bpf_info = {};
       uint32_t info_len = sizeof(bpf_info);
@@ -378,8 +384,10 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 
       // clock_t end = clock();
       // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-      printf("Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
-      fprintf(f, "Verbrauchte Zeit nach initialem BPF-Ladevorgang: %.3f in Sekunden\n", time_spent);
+      printf("Verbrauchte Zeit fuer das Laden des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
+      fprintf(f, "Verbrauchte Zeit fuer das Laden des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      printf("Verbrauchte Zeit fuer das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
+      fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
       printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       printf("Jited prog length: %u\n", bpf_info.jited_prog_len);

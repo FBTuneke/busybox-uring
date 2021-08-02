@@ -223,6 +223,7 @@ int split(struct io_uring_bpf_ctx *ctx)
       if(bytes_read > 0)
       {
             ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
+            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cqe.res, 111111, 0);
             if(ret == 0) //Erfolg, cqe war da!
             {
                   fd = cqe.res;
@@ -440,6 +441,8 @@ int split(struct io_uring_bpf_ctx *ctx)
                         to_write = bytes_read;
                   }
 
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, fd, 111111, 0);
+
                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
 			sqe.cq_idx = SINK_CQ_IDX;
                   sqe.flags = IOSQE_IO_HARDLINK;                 
@@ -462,20 +465,13 @@ int split(struct io_uring_bpf_ctx *ctx)
             sqe.user_data = 9014;
             iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
-            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
-            sqe.cq_idx = SINK_CQ_IDX;
-            sqe.flags = IOSQE_IO_HARDLINK;
-            sqe.user_data = 9004;
-            // sqe.flags = IOSQE_IO_DRAIN;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-
             // Fall: Buffer zu Ende gelesen und Datei zu Ende geschrieben. Tritt dies auf, dann greift die obere Abfrage (olFd != fd) nicht, da fd erst in dem n�chsten
 		// Schleifendurchlauf ge�ndert werden w�rde, den es aber nicht mehr gibt. Also muss hier noch mal geclosed werden.
 		if(!remaining) 
 		{
                   io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
                   sqe.cq_idx = SINK_CQ_IDX;
-                  // sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
+                  sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
 			sqe.user_data = 587;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
@@ -487,6 +483,13 @@ int split(struct io_uring_bpf_ctx *ctx)
                   // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
 		}
+
+            io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
+            sqe.cq_idx = SINK_CQ_IDX;
+            // sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.user_data = 9004;
+            // sqe.flags = IOSQE_IO_DRAIN;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
             return 0;
 
