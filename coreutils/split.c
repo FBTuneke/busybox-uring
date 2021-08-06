@@ -229,11 +229,11 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
       bump_memlock_rlimit();
 
-      bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
-      // bpf_obj = bpf_object__open("split_ebpf.o");
-
       struct timeval begin, end;
       gettimeofday(&begin, 0);
+
+      bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
+      // bpf_obj = bpf_object__open("split_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
       if(ret < 0)
@@ -384,8 +384,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 
       // clock_t end = clock();
       // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-      printf("Verbrauchte Zeit fuer das Laden des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
-      fprintf(f, "Verbrauchte Zeit fuer das Laden des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
+      fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
       printf("Verbrauchte Zeit fuer das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
       fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
       printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);

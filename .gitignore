@@ -67,3 +67,13 @@ TAGS
 
 scripts/kconfig/lxdialog/lxdialog
 docs/busybox.1
+
+applets/applet_tables
+applets/usage
+applets/usage_pod
+
+scripts/basic/docproc
+scripts/basic/fixdep
+scripts/basic/split-include
+scripts/kconfig/conf
+scripts/kconfig/mconf
