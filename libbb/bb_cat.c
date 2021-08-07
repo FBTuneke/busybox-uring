@@ -41,7 +41,7 @@ static size_t roundup_page(size_t sz)
       return (sz + page_size - 1) / page_size * page_size;
 }
 
-int FAST_FUNC bb_cat(char **argv)
+int FAST_FUNC bb_cat(char **argv, int argc)
 {
 	int ret;
       unsigned int nr_of_files = 0;
@@ -79,7 +79,7 @@ int FAST_FUNC bb_cat(char **argv)
             exit(0);
       }
 
-      libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
+      // libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
       bump_memlock_rlimit();
 
       struct timeval begin, end;
@@ -101,10 +101,10 @@ int FAST_FUNC bb_cat(char **argv)
       double time_spent_loading_bpf_prog = seconds + microseconds*1e-6;
 
       name_object_file = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
-      printf("name_object_file: %s\n", name_object_file);
+      // printf("name_object_file: %s\n", name_object_file);
 
       kversion = bpf_object__kversion(bpf_obj);
-      printf("kversion: %i\n", kversion);
+      // printf("kversion: %i\n", kversion);
 
       for(int i = 0; i < NR_OF_BPF_PROGS; i++)
       {
@@ -112,16 +112,16 @@ int FAST_FUNC bb_cat(char **argv)
             else bpf_prog = bpf_program__next(bpf_prog, bpf_obj);
 
             name = bpf_program__name(bpf_prog);
-            printf("program %i name: %s\n", i, name);
+            // printf("program %i name: %s\n", i, name);
             name = bpf_program__section_name(bpf_prog);
-            printf("program %i section name: %s\n", i, name);          
+            // printf("program %i section name: %s\n", i, name);          
 
             prog_fds[i] = bpf_program__fd(bpf_prog);
-            printf("bpf-program %i fd: %i\n", i, prog_fds[i]);
+            // printf("bpf-program %i fd: %i\n", i, prog_fds[i]);
       } 
 
       context_map_fd = bpf_object__find_map_fd_by_name(bpf_obj, "context_map");
-      printf("context map fd: %i\n", context_map_fd);
+      // printf("context map fd: %i\n", context_map_fd);
    
       map_sz = roundup_page(1 * sizeof(ebpf_context_t));
       mmapped_context_map_ptr = mmap(NULL, map_sz, PROT_READ | PROT_WRITE, MAP_SHARED, context_map_fd, 0);
@@ -132,17 +132,17 @@ int FAST_FUNC bb_cat(char **argv)
       }
       context_ptr = (ebpf_context_t*) mmapped_context_map_ptr;
 
-      context_ptr->nr_of_files = nr_of_files;
-      context_ptr->buffer_userspace_ptr = context_ptr->buffer;
-
       //TODO: Durch argc ersetzen - ist aber unused in cat.c? - Rausfinden ob ich das einfach ändern oder sogar direkt benutzen kann.
       for(int i = 0; i < MAX_FDS; i++)
       {
             if(!*argv)
                   break;
-            nr_of_files++;
             context_ptr->paths_userspace_ptr[i] = *argv; 
       }
+
+      // printf("argc: %i\n", argc);
+      context_ptr->nr_of_files = argc - 1;
+      context_ptr->buffer_userspace_ptr = context_ptr->buffer;
 
       // ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
       ret = syscall(427, ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS); //Ist mir zu nervig das hier ordentlich einzubinden gerade.. scheiss Makefile.
@@ -159,7 +159,7 @@ int FAST_FUNC bb_cat(char **argv)
             printf("get sqe #2 failed\n");
             return -1;
       }
-      printf("argv: %s\n", *argv);
+      // printf("argv: %s\n", *argv);
       io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
@@ -185,14 +185,14 @@ int FAST_FUNC bb_cat(char **argv)
 		return -1;
 	}
 
-      printf("\n======START======\n");
+      // printf("\n======START======\n");
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
-            printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            printf("cqe->res: %i\n", cqe->res);
+            // printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            // printf("cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
@@ -218,32 +218,32 @@ int FAST_FUNC bb_cat(char **argv)
       strcpy(fullPath, getenv("HOME"));
       strcat(fullPath, fileName);
 
-      FILE *f;
-      f = fopen(fullPath, "a");
+      // FILE *f;
+      // f = fopen(fullPath, "a");
 
       printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
-      fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      // fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
       printf("Verbrauchte Zeit fuer das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
-      fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
-      printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
-      fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
-      printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
-      fprintf(f, "Jited prog length: %u\n", bpf_info.jited_prog_len);
-      printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
-      fprintf(f, "load time (ns since boottime): %llu\n", bpf_info.load_time);
-      printf("nr func info: %u\n", bpf_info.nr_func_info);
-      fprintf(f, "nr func info: %u\n", bpf_info.nr_func_info);
-      printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
-      fprintf(f, "nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
-      printf("run count: %llu\n", bpf_info.run_cnt);
-      fprintf(f, "run count: %llu\n", bpf_info.run_cnt);
-      printf("run time ns: %llu\n", bpf_info.run_time_ns);
-      fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
+      // fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
+      // printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      // fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      // printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
+      // fprintf(f, "Jited prog length: %u\n", bpf_info.jited_prog_len);
+      // printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
+      // fprintf(f, "load time (ns since boottime): %llu\n", bpf_info.load_time);
+      // printf("nr func info: %u\n", bpf_info.nr_func_info);
+      // fprintf(f, "nr func info: %u\n", bpf_info.nr_func_info);
+      // printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      // fprintf(f, "nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      // printf("run count: %llu\n", bpf_info.run_cnt);
+      // fprintf(f, "run count: %llu\n", bpf_info.run_cnt);
+      // printf("run time ns: %llu\n", bpf_info.run_time_ns);
+      // fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
 
-      printf("\n======END======\n");
-      fprintf(f, "\n======END======\n");
+      // printf("\n======END======\n");
+      // fprintf(f, "\n======END======\n");
 
-      fclose(f);
+      // fclose(f);
       
 	return EXIT_SUCCESS;
 }

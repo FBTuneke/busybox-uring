@@ -11,11 +11,6 @@ lib-y:=
 
 lib-y += auto_string.o
 lib-y += bb_cat.o
-lib-y += bb_cat.o
-lib-y += bb_cat.o
-lib-y += bb_cat.o
-lib-y += bb_cat.o
-lib-y += bb_cat.o
 lib-y += bb_getgroups.o
 lib-y += bb_getsockname.o
 lib-$(CONFIG_UNIT_TEST) += bbunit.o

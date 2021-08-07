@@ -1851,7 +1851,7 @@ int less_main(int argc, char **argv)
 	/* Another popular pager, most, detects when stdout
 	 * is not a tty and turns into cat. This makes sense. */
 	if (!isatty(STDOUT_FILENO))
-		return bb_cat(argv);
+		return bb_cat(argv, argc);
 
 	if (!num_files) {
 		if (isatty(STDIN_FILENO)) {
@@ -1896,7 +1896,7 @@ int less_main(int argc, char **argv)
 	IF_FEATURE_LESS_ASK_TERMINAL(G.winsize_err =) get_terminal_width_height(tty_fd, &width, &max_displayed_line);
 	/* 20: two tabstops + 4 */
 	if (width < 20 || max_displayed_line < 3)
-		return bb_cat(argv);
+		return bb_cat(argv, argc);
 	max_displayed_line -= 2;
 
 	/* We want to restore term_orig on exit */

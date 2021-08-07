@@ -94,10 +94,10 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 	/* Another popular pager, most, detects when stdout
 	 * is not a tty and turns into cat. This makes sense. */
 	if (!isatty(STDOUT_FILENO))
-		return bb_cat(argv);
+		return bb_cat(argv, argc);
 	tty = fopen_for_read(CURRENT_TTY);
 	if (!tty)
-		return bb_cat(argv);
+		return bb_cat(argv, argc);
 
 	G.tty_fileno = fileno(tty);
 

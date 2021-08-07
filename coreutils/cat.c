@@ -213,5 +213,5 @@ int cat_main(int argc UNUSED_PARAM, char **argv)
 	/*opts >>= 2;*/
 #endif
 
-	return bb_cat(argv);
+	return bb_cat(argv, argc);
 }

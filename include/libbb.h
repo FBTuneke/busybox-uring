@@ -1344,7 +1344,7 @@ char *get_script_content(unsigned n) FAST_FUNC;
 int scripted_main(int argc, char** argv);
 
 /* Applets which are useful from another applets */
-int bb_cat(char** argv) FAST_FUNC;
+int bb_cat(char** argv, int argc) FAST_FUNC;
 int ash_main(int argc, char** argv)
 #if ENABLE_ASH || ENABLE_SH_IS_ASH || ENABLE_BASH_IS_ASH
 		MAIN_EXTERNALLY_VISIBLE

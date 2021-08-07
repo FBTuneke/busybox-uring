@@ -24,7 +24,7 @@ typedef unsigned long int longword;
 
 #define AT_FDCWD -100
 
-#define MAX_FDS 10
+#define MAX_FDS 16
 
 typedef struct _ebpf_context
 {
