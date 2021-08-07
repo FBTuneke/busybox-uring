@@ -34,5 +34,6 @@ typedef struct _ebpf_context
       unsigned int nr_of_files;
       unsigned int current_file_idx;
       int fd;
-      unsigned long long offset;
+      unsigned long long write_offset;
+      unsigned long long read_offset;
 } ebpf_context_t;

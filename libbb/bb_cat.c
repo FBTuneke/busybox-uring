@@ -85,7 +85,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/cat_ebpf.o");
+      bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
       // bpf_obj = bpf_object__open("cat_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
@@ -133,11 +133,13 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       context_ptr = (ebpf_context_t*) mmapped_context_map_ptr;
 
       //TODO: Durch argc ersetzen - ist aber unused in cat.c? - Rausfinden ob ich das einfach ändern oder sogar direkt benutzen kann.
-      for(int i = 0; i < MAX_FDS; i++)
+      for(int i = 0; i < argc - 1; i++)
       {
-            if(!*argv)
+            if(!*argv || argc >= MAX_FDS)
                   break;
-            context_ptr->paths_userspace_ptr[i] = *argv; 
+            context_ptr->paths_userspace_ptr[i] = argv[i];
+            // printf("argv[%i]: %s\n", i, argv[i]);
+            // printf("Address of argv[%i]: %llu\n", i, (unsigned long) argv[i]);
       }
 
       // printf("argc: %i\n", argc);
@@ -159,7 +161,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             printf("get sqe #2 failed\n");
             return -1;
       }
-      //printf("argv: %s\n", *argv);
+      // printf("argv: %s\n", *argv);
       io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
@@ -191,8 +193,8 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
-            printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            printf("cqe->res: %i\n", cqe->res);
+            // printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            // printf("cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
