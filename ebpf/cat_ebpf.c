@@ -119,6 +119,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
             else
             {
                   iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, cqe.res, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, nr_of_write_repeats, 0);
                   return 0;
             }
       }
@@ -134,7 +135,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       ret = iouring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
       if (ret != 0) //Kein CQE --> Lesen
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
+            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
             
             io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
             sqe.cq_idx = READ_CQ_IDX;
@@ -146,7 +147,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       {
             if (cqe.res > 0)
             {
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
                   
                   context->read_offset += cqe.res;
                   context->nr_of_bytes_to_write = cqe.res;
@@ -163,7 +164,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
             {
                   context->current_file_idx++;
 
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
+                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 
                   io_uring_prep_close(&sqe, context->fd);
                   sqe.cq_idx = SINK_CQ_IDX;
@@ -177,7 +178,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
                   }
                   else //Neue Datei aufmachen
                   {
-                        iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, 44444, 0);
+                        // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, 44444, 0);
 
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
                         sqe.cq_idx = OPEN_CQ_IDX;
