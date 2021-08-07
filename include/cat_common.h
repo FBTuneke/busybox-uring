@@ -20,6 +20,7 @@ typedef unsigned long int longword;
 #define READ_ERROR 99902
 #define OPEN_CQ_ERROR 99903
 #define WRITE_ERROR 99904
+#define OPEN_ERROR 99905
 
 #define CAT_PROG_IDX 0
 

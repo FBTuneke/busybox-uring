@@ -77,3 +77,5 @@ scripts/basic/fixdep
 scripts/basic/split-include
 scripts/kconfig/conf
 scripts/kconfig/mconf
+
+include/autoconf.h

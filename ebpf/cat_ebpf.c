@@ -63,7 +63,6 @@ int cat(struct io_uring_bpf_ctx *ctx)
       struct io_uring_sqe sqe;
 	struct io_uring_cqe cqe = {};
       uint32_t key = 0;
-      volatile unsigned int ctx_wait_idx, ctx_wait_nr;
       int ret;
       ebpf_context_t *context;
 
@@ -73,15 +72,22 @@ int cat(struct io_uring_bpf_ctx *ctx)
             iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0); //Aus Kernelmodus zurückkehren und printen
             return 0; 
       }
+
+      iouring_reap_cqe(ctx, SINK_CQ_IDX, &cqe, sizeof(cqe));
  
       ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
       if(ret == 0)
       {     
-            context->fd = cqe.res;
-            context->read_offset = 0;
-
-            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cqe.res, 555555, 0);
-            // return 0;
+            if(cqe.res >= 0)
+            {
+                  context->fd = cqe.res;
+                  context->read_offset = 0;
+            }
+            else
+            {
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, OPEN_ERROR, cqe.res, 0);
+                  return 0;
+            }
       }
 
       ret = iouring_reap_cqe(ctx, WRITE_CQ_IDX, &cqe, sizeof(cqe));
@@ -114,14 +120,8 @@ int cat(struct io_uring_bpf_ctx *ctx)
             io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
             sqe.cq_idx = READ_CQ_IDX;
             sqe.user_data = 9014;
+            sqe.flags = IOSQE_IO_HARDLINK;
             iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-
-            //Warte bis read-SQE fertig ist und führe dieses BPF-Programm dann erneut aus
-            ctx_wait_idx = READ_CQ_IDX; // KACK COMPILER - MUSS VOLATILE SEIN SONST ZUGRIFF AUF 4 BYTE VARIABLE WIE AUF 8 BYTE VARIABLE UND VERIFIER MECKERT DANN ?!?!?!
-            ctx_wait_nr = 1;
-            ctx->wait_idx = ctx_wait_idx;
-            ctx->wait_nr = ctx_wait_nr;
-            return 0;
       }
       else if (ret == 0) // CQE da --> Schreiben
       {
@@ -134,16 +134,10 @@ int cat(struct io_uring_bpf_ctx *ctx)
                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, cqe.res, context->write_offset);
                   sqe.cq_idx = WRITE_CQ_IDX;
                   sqe.user_data = 98787;
+                  sqe.flags = IOSQE_IO_HARDLINK;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
                   
                   // context->write_offset += cqe.res; //TODO: Eigtl erst nachem der write-call zurückgekehrt ist. Sollte aber eigtl. auch so klappen.
-
-                  //Auf Write-SQE warten, sonst könnte der neue read-SQE diesen write-SQE überholen und würde den Inhalt des Buffers überschreiben.
-                  ctx_wait_idx = WRITE_CQ_IDX;
-                  ctx_wait_nr = 1;
-                  ctx->wait_idx = ctx_wait_idx;
-                  ctx->wait_nr = ctx_wait_nr;
-                  return 0;
             }
             else if (cqe.res == 0) //Dateiende
             {
@@ -168,23 +162,26 @@ int cat(struct io_uring_bpf_ctx *ctx)
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
                         sqe.cq_idx = OPEN_CQ_IDX;
                         sqe.user_data = 6879;
-                        // sqe.flags = IOSQE_IO_HARDLINK;
+                        sqe.flags = IOSQE_IO_HARDLINK;
                         iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-
-                        ctx_wait_idx = OPEN_CQ_IDX;
-                        ctx_wait_nr = 1;
-                        ctx->wait_idx = ctx_wait_idx;
-                        ctx->wait_nr = ctx_wait_nr;
-                        return 0;
                   }
             }
             else //Fehler beim read-SQE
             {
-                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, READ_ERROR, 22222, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, READ_ERROR, cqe.res, 0);
                   return 0;
             }
       }
 
+      // if(cnt < 200)
+      // {
+            io_uring_prep_bpf(&sqe, CAT_PROG_IDX, 0);  
+            sqe.cq_idx = SINK_CQ_IDX;
+            sqe.user_data = 2004;
+            // sqe.flags = IOSQE_IO_HARDLINK;
+            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+      // }
+      cnt++;
       return 0;
 }
 
