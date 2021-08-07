@@ -188,13 +188,23 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 	}
 
       //printf("\n======START======\n");
+      char *fullPath;
+      char *fileName = "/cat-bpf-log.txt";
+      fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
+      strcpy(fullPath, getenv("HOME"));
+      strcat(fullPath, fileName);
+      FILE *f;
+      f = fopen(fullPath, "a");
+      
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
             // printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            fprintf(f, "\ncqe->user_data: %llu\n", cqe->user_data);
             // printf("cqe->res: %i\n", cqe->res);
+            fprintf(f, "cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
@@ -214,14 +224,9 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 	if(ret != 0)
             printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
       
-      char *fullPath;
-      char *fileName = "/cat-bpf-log.txt";
-      fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
-      strcpy(fullPath, getenv("HOME"));
-      strcat(fullPath, fileName);
+   
 
-      FILE *f;
-      f = fopen(fullPath, "a");
+
 
       //printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
       fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
