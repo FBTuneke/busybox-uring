@@ -11,8 +11,8 @@ typedef unsigned long int longword;
 #define DEFAULT_CQ_IDX 0
 #define OPEN_CQ_IDX 1
 #define READ_CQ_IDX 2
-#define WRITE_CQ_IDX 4
-#define SINK_CQ_IDX 5
+#define WRITE_CQ_IDX 3
+#define SINK_CQ_IDX 4
 
 #define CAT_COMPLETE 99909
 #define READ_CQ_ERROR 99900
@@ -25,8 +25,6 @@ typedef unsigned long int longword;
 #define AT_FDCWD -100
 
 #define MAX_FDS 10
-
-#define MAX_LOOP 200000
 
 typedef struct _ebpf_context
 {

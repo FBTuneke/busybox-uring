@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define MAX_LOOP 5000
+
 struct bpf_map_def SEC("maps") context_map =
 {
         .type = BPF_MAP_TYPE_ARRAY,
@@ -21,7 +23,6 @@ static long (*iouring_queue_sqe)(void *bpf_ctx, struct io_uring_sqe *sqe, uint32
 static long (*iouring_emit_cqe)(void *bpf_ctx, uint32_t cq_idx, __u64 user_data, int res, uint32_t flags) = (void *) 165;
 static long (*iouring_reap_cqe)(void *bpf_ctx, uint32_t cq_idx, struct io_uring_cqe *cqe_out, uint32_t cqe_len) = (void *) 166;
 // static long (*bpf_custom_copy_to_user)(void *user_ptr, const void *src, __u32 size) = (void *) 167; //overwrite normal bpf_copy_to_user
-static unsigned long (*bpf_memchr)(void *src, ssize_t size, int c) = (void *) 168;
 
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,const void *addr, unsigned len, __u64 offset)
 {
@@ -71,7 +72,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       }
  
       ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
-      if(ret)
+      if(ret == 0)
       {     
             context->fd = cqe.res;
             context->offset = 0;
@@ -85,10 +86,13 @@ int cat(struct io_uring_bpf_ctx *ctx)
             return 0;
       }
 
-      //Neues Feature auf CQs warten.
+      // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cqe.res, 6666879, 0);
+      // return 0;
+
+      // Neues Feature auf CQs warten.
       ctx->wait_nr = 1;
 
-      for(int i = 0; i < MAX_LOOP; i++)
+      for(int i = 0; i < 10; i++)
       {
             io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->offset);
             sqe.cq_idx = READ_CQ_IDX;

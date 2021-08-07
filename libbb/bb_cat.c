@@ -6,8 +6,6 @@
  */
 //kbuild:lib-y += bb_cat.o
 
-#include "../include/common_bufsiz.h"
-
 #include "../include/libbb.h"
 #include "../include/cat_common.h"
 #include "../../linux/tools/lib/bpf/libbpf.h"
@@ -43,15 +41,6 @@ static size_t roundup_page(size_t sz)
       return (sz + page_size - 1) / page_size * page_size;
 }
 
-#ifndef __NR_io_uring_register
-      #define __NR_io_uring_register 427
-#endif
-
-int __sys_io_uring_register(int fd, unsigned opcode, const void *arg, unsigned nr_args)
-{
-	return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
-}
-
 int FAST_FUNC bb_cat(char **argv)
 {
 	int ret;
@@ -60,7 +49,7 @@ int FAST_FUNC bb_cat(char **argv)
 	struct io_uring_sqe* sqe;
 	struct io_uring_cqe* cqe;
       struct io_uring_params params;
-      uint32_t cq_sizes[4] = {128, 128, 128, 128};
+      uint32_t cq_sizes[5] = {128, 128, 128, 128, 128};
       struct bpf_object *bpf_obj;
       struct bpf_program *bpf_prog;
       const char *name_object_file, *name;
@@ -155,14 +144,13 @@ int FAST_FUNC bb_cat(char **argv)
             context_ptr->paths_userspace_ptr[i] = *argv; 
       }
 
-      ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
+      // ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
+      ret = syscall(427, ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS); //Ist mir zu nervig das hier ordentlich einzubinden gerade.. scheiss Makefile.
       if(ret < 0)
       {
             printf("Error __sys_io_uring_register, ret: %i\n", ret);
             return -1;
       }
-
-
 
       gettimeofday(&begin, 0);
       sqe = io_uring_get_sqe(&ring);
@@ -171,7 +159,8 @@ int FAST_FUNC bb_cat(char **argv)
             printf("get sqe #2 failed\n");
             return -1;
       }
-      io_uring_prep_openat(sqe, 0, *argv, O_RDONLY, 0);
+      printf("argv: %s\n", *argv);
+      io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = OPEN_CQ_IDX;
@@ -185,6 +174,7 @@ int FAST_FUNC bb_cat(char **argv)
       io_uring_prep_nop(sqe);
 	sqe->off = CAT_PROG_IDX; //Scheint der Index des eBPF-Programms zu sein.
 	sqe->opcode = IORING_OP_BPF;
+      sqe->user_data = 999;
 	sqe->flags = 0;
       sqe->cq_idx = SINK_CQ_IDX;
 
@@ -213,7 +203,7 @@ int FAST_FUNC bb_cat(char **argv)
       gettimeofday(&end, 0);
       seconds = end.tv_sec - begin.tv_sec;
       microseconds = end.tv_usec - begin.tv_usec;
-      double time_spent_split = seconds + microseconds*1e-6;
+      double time_spent_cat = seconds + microseconds*1e-6;
 
       struct bpf_prog_info bpf_info = {};
       uint32_t info_len = sizeof(bpf_info);
@@ -233,8 +223,8 @@ int FAST_FUNC bb_cat(char **argv)
 
       printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
       fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
-      printf("Verbrauchte Zeit fuer das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
-      fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
+      printf("Verbrauchte Zeit fuer das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
+      fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
       printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
