@@ -95,7 +95,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       ret = iouring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
       if (ret != 0) //Kein CQE --> Lesen
       {
-            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
+            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
             
             io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->offset);
             sqe.cq_idx = READ_CQ_IDX;
@@ -113,7 +113,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       {
             if (cqe.res > 0)
             {
-                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
                   
                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, cqe.res, context->offset);
                   sqe.cq_idx = WRITE_CQ_IDX;
@@ -133,7 +133,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
             {
                   context->current_file_idx++;
 
-                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 
                   io_uring_prep_close(&sqe, context->fd);
                   sqe.cq_idx = SINK_CQ_IDX;

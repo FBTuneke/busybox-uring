@@ -191,8 +191,8 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
-            //printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            //printf("cqe->res: %i\n", cqe->res);
+            printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            printf("cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
