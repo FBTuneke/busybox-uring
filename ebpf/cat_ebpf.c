@@ -56,6 +56,7 @@ static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 }
 
 int unsigned cnt = 0;
+int unsigned nr_of_write_repeats = 0;
 
 SEC("iouring.s/") //.s = .is_sleepable = true
 int cat(struct io_uring_bpf_ctx *ctx)
@@ -96,6 +97,24 @@ int cat(struct io_uring_bpf_ctx *ctx)
             if(cqe.res > 0)
             {
                   context->write_offset += cqe.res;
+                  nr_of_write_repeats = 0;
+            }
+            else if(cqe.res == -4 && nr_of_write_repeats < 20)
+            {
+                  io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, context->nr_of_bytes_to_write, context->write_offset);
+                  sqe.cq_idx = WRITE_CQ_IDX;
+                  sqe.user_data = 98787;
+                  sqe.flags = IOSQE_IO_HARDLINK;
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
+                  io_uring_prep_bpf(&sqe, CAT_PROG_IDX, 0);  
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.user_data = 2004;
+                  iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+
+                  nr_of_write_repeats++;
+
+                  return 0;
             }
             else
             {
@@ -115,7 +134,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
       ret = iouring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
       if (ret != 0) //Kein CQE --> Lesen
       {
-            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
+            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 11111, 11111, 0);
             
             io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
             sqe.cq_idx = READ_CQ_IDX;
@@ -127,9 +146,10 @@ int cat(struct io_uring_bpf_ctx *ctx)
       {
             if (cqe.res > 0)
             {
-                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
                   
                   context->read_offset += cqe.res;
+                  context->nr_of_bytes_to_write = cqe.res;
 
                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, cqe.res, context->write_offset);
                   sqe.cq_idx = WRITE_CQ_IDX;
@@ -143,7 +163,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
             {
                   context->current_file_idx++;
 
-                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 
                   io_uring_prep_close(&sqe, context->fd);
                   sqe.cq_idx = SINK_CQ_IDX;
@@ -157,7 +177,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
                   }
                   else //Neue Datei aufmachen
                   {
-                        // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, 44444, 0);
+                        iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, 44444, 0);
 
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
                         sqe.cq_idx = OPEN_CQ_IDX;
