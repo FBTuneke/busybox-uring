@@ -19,6 +19,7 @@ typedef unsigned long int longword;
 #define CONTEXT_ERROR 99901
 #define READ_ERROR 99902
 #define OPEN_CQ_ERROR 99903
+#define WRITE_ERROR 99904
 
 #define CAT_PROG_IDX 0
 

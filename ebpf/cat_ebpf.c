@@ -84,6 +84,20 @@ int cat(struct io_uring_bpf_ctx *ctx)
             // return 0;
       }
 
+      ret = iouring_reap_cqe(ctx, WRITE_CQ_IDX, &cqe, sizeof(cqe));
+      if(ret == 0)
+      {             
+            if(cqe.res > 0)
+            {
+                  context->write_offset += cqe.res;
+            }
+            else
+            {
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, cqe.res, 0);
+                  return 0;
+            }
+      }
+
       // if(cnt == 0)
       // {
       //       iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, context->nr_of_files, 666666, 0);
@@ -122,7 +136,7 @@ int cat(struct io_uring_bpf_ctx *ctx)
                   sqe.user_data = 98787;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
                   
-                  context->write_offset += cqe.res; //TODO: Eigtl erst nachem der write-call zurückgekehrt ist. Sollte aber eigtl. auch so klappen.
+                  // context->write_offset += cqe.res; //TODO: Eigtl erst nachem der write-call zurückgekehrt ist. Sollte aber eigtl. auch so klappen.
 
                   //Auf Write-SQE warten, sonst könnte der neue read-SQE diesen write-SQE überholen und würde den Inhalt des Buffers überschreiben.
                   ctx_wait_idx = WRITE_CQ_IDX;
