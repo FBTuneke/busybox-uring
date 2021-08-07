@@ -232,7 +232,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/mnt/busybox-uring/split_ebpf.o");
+      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/split_ebpf.o");
       // bpf_obj = bpf_object__open("split_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);

@@ -85,7 +85,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
+      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/cat_ebpf.o");
       // bpf_obj = bpf_object__open("cat_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
@@ -159,7 +159,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             printf("get sqe #2 failed\n");
             return -1;
       }
-      // printf("argv: %s\n", *argv);
+      //printf("argv: %s\n", *argv);
       io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
@@ -185,14 +185,14 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 		return -1;
 	}
 
-      // printf("\n======START======\n");
+      //printf("\n======START======\n");
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
-            // printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            // printf("cqe->res: %i\n", cqe->res);
+            //printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            //printf("cqe->res: %i\n", cqe->res);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
@@ -218,13 +218,13 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       strcpy(fullPath, getenv("HOME"));
       strcat(fullPath, fileName);
 
-      // FILE *f;
-      // f = fopen(fullPath, "a");
+      FILE *f;
+      f = fopen(fullPath, "a");
 
-      printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
-      // fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
-      printf("Verbrauchte Zeit fuer das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
-      // fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
+      //printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
+      fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      //printf("Verbrauchte Zeit fuer das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
+      fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
       // printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
@@ -243,7 +243,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // printf("\n======END======\n");
       // fprintf(f, "\n======END======\n");
 
-      // fclose(f);
+      fclose(f);
       
 	return EXIT_SUCCESS;
 }
