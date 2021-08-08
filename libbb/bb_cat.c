@@ -258,6 +258,9 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // fprintf(f, "\n======END======\n");
 
       fclose(f);
+      free(fullPath);
+      free(fullPath2);
+      bpf_object__unload(bpf_obj);
       bpf_object__close(bpf_obj);
       munmap(mmapped_context_map_ptr, map_sz); //Noetig?
       
