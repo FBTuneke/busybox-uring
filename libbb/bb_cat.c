@@ -258,6 +258,8 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // fprintf(f, "\n======END======\n");
 
       fclose(f);
+      bpf_object__close(bpf_obj);
+      munmap(mmapped_context_map_ptr, map_sz); //Noetig?
       
 	return EXIT_SUCCESS;
 }
