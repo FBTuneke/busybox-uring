@@ -188,29 +188,39 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 	}
 
       //printf("\n======START======\n");
-      char *fullPath;
+      char *fullPath, *fullPath2;
       char *fileName = "/cat-bpf-log.txt";
+      char *fileName2 = "/cat-bpf-last-instruction.txt";
       fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
+      fullPath2 = malloc(strlen(getenv("HOME") + strlen(fileName2)) + 1); // to account for NULL terminator
       strcpy(fullPath, getenv("HOME"));
+      strcpy(fullPath2, getenv("HOME"));
       strcat(fullPath, fileName);
-      FILE *f;
+      strcat(fullPath2, fileName2);
+      FILE *f, *f2;
       f = fopen(fullPath, "a");
-      
+      // printf("fullpath: %s", fullPath);
+      f2 = fopen(fullPath2, "w");
+      // printf("fullpath2: %s", fullPath2);
       while(1)
       {
             ret = io_uring_wait_cqe(&ring, &cqe);
             io_uring_cqe_seen(&ring, cqe);
             
             // printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            fprintf(f, "\ncqe->user_data: %llu\n", cqe->user_data);
+            fprintf(f2, "\ncqe->user_data: %llu\n", cqe->user_data);
             // printf("cqe->res: %i\n", cqe->res);
-            fprintf(f, "cqe->res: %i\n", cqe->res);
+            fprintf(f2, "cqe->res: %i\n", cqe->res);
+
+            rewind(f2);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
                   break;
             }
       }
+
+      fclose(f2);
 
       gettimeofday(&end, 0);
       seconds = end.tv_sec - begin.tv_sec;
@@ -223,9 +233,6 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       ret = bpf_obj_get_info_by_fd(prog_fds[0], &bpf_info, &info_len);
 	if(ret != 0)
             printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
-      
-   
-
 
 
       //printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
