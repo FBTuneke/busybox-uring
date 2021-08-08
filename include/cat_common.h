@@ -12,17 +12,22 @@ typedef unsigned long int longword;
 #define OPEN_CQ_IDX 1
 #define READ_CQ_IDX 2
 #define WRITE_CQ_IDX 3
-#define SINK_CQ_IDX 4
+#define CLOSE_CQ_IDX 4
+#define SINK_CQ_IDX 5
 
-#define CAT_COMPLETE 99909
 #define READ_CQ_ERROR 99900
 #define CONTEXT_ERROR 99901
 #define READ_ERROR 99902
 #define OPEN_CQ_ERROR 99903
 #define WRITE_ERROR 99904
 #define OPEN_ERROR 99905
+#define CLOSE_ERROR 99906
+#define CLOSE_LAST_FILE_ERROR 99907
+#define CLOSE_LAST_FILE_CQ_ERROR 99908
+#define CAT_COMPLETE 99909
 
 #define CAT_PROG_IDX 0
+#define END_PROG_IDX 1
 
 #define AT_FDCWD -100
 

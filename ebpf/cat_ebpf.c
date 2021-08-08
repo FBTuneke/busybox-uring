@@ -75,6 +75,16 @@ int cat(struct io_uring_bpf_ctx *ctx)
       }
 
       iouring_reap_cqe(ctx, SINK_CQ_IDX, &cqe, sizeof(cqe));
+
+      ret = iouring_reap_cqe(ctx, CLOSE_CQ_IDX, &cqe, sizeof(cqe));
+      if(ret == 0)
+      {
+            if(cqe.res != 0)
+            {
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CLOSE_ERROR, cqe.res, 0);
+                  return 0;
+            }
+      }
  
       ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
       if(ret == 0)
@@ -167,13 +177,17 @@ int cat(struct io_uring_bpf_ctx *ctx)
                   // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 
                   io_uring_prep_close(&sqe, context->fd);
-                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.cq_idx = CLOSE_CQ_IDX;
                   sqe.user_data = 587;
+                  sqe.flags = IOSQE_IO_HARDLINK;
                   iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 
-                  if (context->current_file_idx == context->nr_of_files) //Fertig.
+                  if (context->current_file_idx == context->nr_of_files) //Fertig, Erst beenden, wenn letztes File geschlossen wurde.
                   {
-                        iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CAT_COMPLETE, 22222, 0);
+                        io_uring_prep_bpf(&sqe, END_PROG_IDX, 0);  
+                        sqe.cq_idx = SINK_CQ_IDX;
+                        sqe.user_data = 2054;
+                        iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
                         return 0;
                   }
                   else //Neue Datei aufmachen
@@ -203,6 +217,30 @@ int cat(struct io_uring_bpf_ctx *ctx)
             iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
       // }
       cnt++;
+      return 0;
+}
+
+SEC("iouring.s/") //.s = .is_sleepable = true
+int end(struct io_uring_bpf_ctx *ctx)
+{
+      struct io_uring_cqe cqe = {};
+      
+      int ret = iouring_reap_cqe(ctx, CLOSE_CQ_IDX, &cqe, sizeof(cqe));
+      if(ret == 0)
+      {
+            if(cqe.res != 0)
+            {
+                  iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CLOSE_LAST_FILE_ERROR, cqe.res, 0);
+                  return 0;
+            }
+      }
+      else
+      {
+            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CLOSE_LAST_FILE_CQ_ERROR, ret, 0);
+            return 0;
+      }
+      
+      iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CAT_COMPLETE, 22222, 0);
       return 0;
 }
 

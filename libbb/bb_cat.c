@@ -14,7 +14,7 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#define NR_OF_BPF_PROGS 1
+#define NR_OF_BPF_PROGS 2
 
 static void bump_memlock_rlimit(void)
 {
@@ -49,7 +49,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 	struct io_uring_sqe* sqe;
 	struct io_uring_cqe* cqe;
       struct io_uring_params params;
-      uint32_t cq_sizes[5] = {128, 128, 128, 128, 128};
+      uint32_t cq_sizes[6] = {128, 128, 128, 128, 128, 128};
       struct bpf_object *bpf_obj;
       struct bpf_program *bpf_prog;
       const char *name_object_file, *name;
