@@ -82,10 +82,10 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
       bump_memlock_rlimit();
 
-      struct timeval begin, end;
-      gettimeofday(&begin, 0);
+      //struct timeval begin, end;
+      //gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
+      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/cat_ebpf.o");
       // bpf_obj = bpf_object__open("cat_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
@@ -95,15 +95,15 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             return -1;
       }
 
-      gettimeofday(&end, 0);
-      long seconds = end.tv_sec - begin.tv_sec;
-      long microseconds = end.tv_usec - begin.tv_usec;
-      double time_spent_loading_bpf_prog = seconds + microseconds*1e-6;
+      //gettimeofday(&end, 0);
+      //long seconds = end.tv_sec - begin.tv_sec;
+      //long microseconds = end.tv_usec - begin.tv_usec;
+      //double time_spent_loading_bpf_prog = seconds + microseconds*1e-6;
 
-      name_object_file = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
+      //name_object_file = bpf_object__name(bpf_obj); //HIER KOMMT DER NAME VOM .o-FILE RAUS. ALSO BEI "ebpf.o" gibt die Funktion "ebpf" zurück.
       // printf("name_object_file: %s\n", name_object_file);
 
-      kversion = bpf_object__kversion(bpf_obj);
+      //kversion = bpf_object__kversion(bpf_obj);
       // printf("kversion: %i\n", kversion);
 
       for(int i = 0; i < NR_OF_BPF_PROGS; i++)
@@ -111,9 +111,9 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             if(i == 0) bpf_prog = bpf_program__next(NULL, bpf_obj);
             else bpf_prog = bpf_program__next(bpf_prog, bpf_obj);
 
-            name = bpf_program__name(bpf_prog);
+            //name = bpf_program__name(bpf_prog);
             // printf("program %i name: %s\n", i, name);
-            name = bpf_program__section_name(bpf_prog);
+            //name = bpf_program__section_name(bpf_prog);
             // printf("program %i section name: %s\n", i, name);          
 
             prog_fds[i] = bpf_program__fd(bpf_prog);
@@ -154,7 +154,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             return -1;
       }
 
-      gettimeofday(&begin, 0);
+      //gettimeofday(&begin, 0);
       sqe = io_uring_get_sqe(&ring);
       if (!sqe)
       {
@@ -188,19 +188,19 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 	}
 
       //printf("\n======START======\n");
-      char *fullPath, *fullPath2;
-      char *fileName = "/cat-bpf-log.txt";
-      char *fileName2 = "/cat-bpf-last-instruction.txt";
-      fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
-      fullPath2 = malloc(strlen(getenv("HOME") + strlen(fileName2)) + 1); // to account for NULL terminator
-      strcpy(fullPath, getenv("HOME"));
-      strcpy(fullPath2, getenv("HOME"));
-      strcat(fullPath, fileName);
-      strcat(fullPath2, fileName2);
-      FILE *f, *f2;
-      f = fopen(fullPath, "a");
+      //char *fullPath, *fullPath2;
+      //char *fileName = "/cat-bpf-log.txt";
+      //char *fileName2 = "/cat-bpf-last-instruction.txt";
+      //fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
+      //fullPath2 = malloc(strlen(getenv("HOME") + strlen(fileName2)) + 1); // to account for NULL terminator
+      //strcpy(fullPath, getenv("HOME"));
+      //strcpy(fullPath2, getenv("HOME"));
+      //strcat(fullPath, fileName);
+      //strcat(fullPath2, fileName2);
+      //FILE *f, *f2;
+      //f = fopen(fullPath, "a");
       // printf("fullpath: %s", fullPath);
-      f2 = fopen(fullPath2, "w");
+      //f2 = fopen(fullPath2, "w");
       // printf("fullpath2: %s", fullPath2);
       while(1)
       {
@@ -208,11 +208,11 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             io_uring_cqe_seen(&ring, cqe);
             
             // printf("\ncqe->user_data: %llu\n", cqe->user_data);
-            fprintf(f2, "\ncqe->user_data: %llu\n", cqe->user_data);
+            //fprintf(f2, "\ncqe->user_data: %llu\n", cqe->user_data);
             // printf("cqe->res: %i\n", cqe->res);
-            fprintf(f2, "cqe->res: %i\n", cqe->res);
+            //fprintf(f2, "cqe->res: %i\n", cqe->res);
 
-            rewind(f2);
+            //rewind(f2);
 
             if(cqe->user_data == CAT_COMPLETE)
             {
@@ -220,12 +220,12 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             }
       }
 
-      fclose(f2);
+      //fclose(f2);
 
-      gettimeofday(&end, 0);
-      seconds = end.tv_sec - begin.tv_sec;
-      microseconds = end.tv_usec - begin.tv_usec;
-      double time_spent_cat = seconds + microseconds*1e-6;
+      //gettimeofday(&end, 0);
+      //seconds = end.tv_sec - begin.tv_sec;
+      //microseconds = end.tv_usec - begin.tv_usec;
+      //double time_spent_cat = seconds + microseconds*1e-6;
 
       struct bpf_prog_info bpf_info = {};
       uint32_t info_len = sizeof(bpf_info);
@@ -236,9 +236,9 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 
 
       //printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
-      fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      //fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
       //printf("Verbrauchte Zeit fuer das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
-      fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
+      //fprintf(f, "Verbrauchte Zeit für das eigentliche cat: %.3f in Sekunden\n", time_spent_cat);
       // printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
@@ -257,12 +257,12 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // printf("\n======END======\n");
       // fprintf(f, "\n======END======\n");
 
-      fclose(f);
-      free(fullPath);
-      free(fullPath2);
-      bpf_object__unload(bpf_obj);
-      bpf_object__close(bpf_obj);
-      munmap(mmapped_context_map_ptr, map_sz); //Noetig?
+      //fclose(f);
+      //free(fullPath);
+      //free(fullPath2);
+      //bpf_object__unload(bpf_obj);
+      //bpf_object__close(bpf_obj);
+      //munmap(mmapped_context_map_ptr, map_sz); //Noetig?
       
 	return EXIT_SUCCESS;
 }
