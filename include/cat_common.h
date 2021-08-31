@@ -26,8 +26,10 @@ typedef unsigned long int longword;
 #define CLOSE_LAST_FILE_CQ_ERROR 99908
 #define CAT_COMPLETE 99909
 
-#define CAT_PROG_IDX 0
-#define END_PROG_IDX 1
+#define OPEN_PROG_IDX 0
+#define READ_PROG_IDX 1
+#define WRITE_PROG_IDX 2
+#define CLOSE_PROG_IDX 3
 
 #define AT_FDCWD -100
 
