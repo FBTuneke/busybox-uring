@@ -13,8 +13,39 @@
 #include "liburing.h"
 #include <time.h>
 #include <sys/stat.h>
+#include <limits.h>
 
-#define NR_OF_BPF_PROGS 2
+#define NR_OF_BPF_PROGS 4
+
+void exe_path(char *str)
+{
+      FILE *fp;
+      char buf[4096], *p;
+
+      *str = '\0';
+      
+      if(!(fp = fopen("/proc/self/maps", "r")))
+            return;
+
+      fgets(buf, sizeof(buf), fp);
+      fclose(fp);
+
+      *(p = strchr(buf, '\n')) = '\0';
+      // printf("1: %s\n", buf);
+      while(*p != '/')
+            p--;
+
+      *p = '\0';
+      // printf("2: %s\n", buf);
+
+      while(*p != ' ')
+            p--;
+      
+      // printf("2: %s\n", p);
+
+      strncpy(str, p+1, PATH_MAX);
+      str[PATH_MAX] = '\0';
+}
 
 static void bump_memlock_rlimit(void)
 {
@@ -59,6 +90,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       void *mmapped_context_map_ptr;
       ebpf_context_t *context_ptr;
       int context_map_fd;
+      char buf_path[PATH_MAX];
 
 	if (!*argv)
 		argv = (char**) &bb_argv_dash;	
@@ -85,7 +117,13 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       //struct timeval begin, end;
       //gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/cat_ebpf.o");
+      exe_path(buf_path);
+      // printf("before path: %s\n", buf_path);
+      strcat(buf_path, "/cat_ebpf.o");
+      // printf("cat_bpf path: %s\n", buf_path);
+
+      // bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
+      bpf_obj = bpf_object__open(buf_path);
       // bpf_obj = bpf_object__open("cat_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
@@ -143,16 +181,19 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       }
 
       // printf("argc: %i\n", argc);
+      context_ptr->current_file_idx = 0;
       context_ptr->nr_of_files = argc - 1;
       context_ptr->buffer_userspace_ptr = context_ptr->buffer;
 
       // ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
-      ret = syscall(427, ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS); //Ist mir zu nervig das hier ordentlich einzubinden gerade.. scheiss Makefile.
+      ret = syscall(427, ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS); 
       if(ret < 0)
       {
             printf("Error __sys_io_uring_register, ret: %i\n", ret);
             return -1;
       }
+
+      // printf("#1\n");
 
       //gettimeofday(&begin, 0);
       sqe = io_uring_get_sqe(&ring);
@@ -174,7 +215,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             return -1;
       }
       io_uring_prep_nop(sqe);
-	sqe->off = CAT_PROG_IDX; //Scheint der Index des eBPF-Programms zu sein.
+	sqe->off = OPEN_PROG_IDX; 
 	sqe->opcode = IORING_OP_BPF;
       sqe->user_data = 999;
 	sqe->flags = 0;
