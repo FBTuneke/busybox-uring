@@ -42,12 +42,13 @@
 
 
 #include "../include/common_bufsiz.h"
+#include "../include/common.h"
 
-#include "../include/libbb.h"
+#include "liburing.h" //Wichtig - dieses io_uring  nehmen - vor split_common.h. TODO: Mal aufräumen
 #include "../include/split_common.h"
 #include "../../linux/tools/lib/bpf/libbpf.h"
 #include "../../linux/tools/lib/bpf/bpf.h"
-#include "liburing.h"
+
 #include <time.h>
 
 #define NR_OF_BPF_PROGS 1
@@ -209,6 +210,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       void *mmapped_context_map_ptr;
       ebpf_context_t *context_ptr;
       int context_map_fd;
+      char buf_path[PATH_MAX];
 
       memset(&params, 0, sizeof(params));
       params.nr_cq = ARRAY_SIZE(cq_sizes); //Anzahl von zusätzlichen Completion Queues???
@@ -232,7 +234,12 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/split_ebpf.o");
+      exe_path(buf_path);
+      // printf("before path: %s\n", buf_path);
+      strcat(buf_path, "/split_ebpf.o");
+
+
+      bpf_obj = bpf_object__open(buf_path);
       // bpf_obj = bpf_object__open("split_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);

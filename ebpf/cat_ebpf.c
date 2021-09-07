@@ -7,6 +7,7 @@
 #include "../../linux/tools/lib/bpf/bpf_helpers.h"
 #include <sys/socket.h>
 #include <unistd.h>
+// #include <bpf/bpf_helper_defs.h>
 
 // #define MAX_LOOP 1
 
@@ -19,14 +20,25 @@ struct bpf_map_def SEC("maps") context_map =
         .map_flags = BPF_F_MMAPABLE,
 };
 
-static long (*iouring_queue_sqe)(void *bpf_ctx, struct io_uring_sqe *sqe, uint32_t sqe_len) = (void *) 164;
-static long (*iouring_emit_cqe)(void *bpf_ctx, uint32_t cq_idx, __u64 user_data, int res, uint32_t flags) = (void *) 165;
-static long (*iouring_reap_cqe)(void *bpf_ctx, uint32_t cq_idx, struct io_uring_cqe *cqe_out, uint32_t cqe_len) = (void *) 166;
+// static long (*bpf_io_uring_submit)(void *bpf_ctx, struct io_uring_sqe *sqe, uint32_t sqe_len) = (void *) 170;
+// static long (*bpf_io_uring_emit_cqe)(void *bpf_ctx, uint32_t cq_idx, __u64 user_data, int res, uint32_t flags) = (void *) 171;
+// static long (*bpf_io_uring_reap_cqe)(void *bpf_ctx, uint32_t cq_idx, struct io_uring_cqe *cqe_out, uint32_t cqe_len) = (void *) 172;
 // static long (*bpf_custom_copy_to_user)(void *user_ptr, const void *src, __u32 size) = (void *) 167; //overwrite normal bpf_copy_to_user
 
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,const void *addr, unsigned len, __u64 offset)
 {
-	sqe->opcode = op;
+	// sqe->opcode = op;
+	// sqe->flags = 0;
+	// sqe->ioprio = 0;
+	// sqe->fd = fd;
+	// sqe->off = offset;
+	// sqe->addr = (unsigned long) addr;
+	// sqe->len = len;
+	// sqe->rw_flags = 0;
+	// sqe->user_data = 0;
+	// sqe->__pad2[0] = sqe->__pad2[1] = sqe->__pad2[2] = 0;
+
+      sqe->opcode = (__u8) op;
 	sqe->flags = 0;
 	sqe->ioprio = 0;
 	sqe->fd = fd;
@@ -35,7 +47,12 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,con
 	sqe->len = len;
 	sqe->rw_flags = 0;
 	sqe->user_data = 0;
-	sqe->__pad2[0] = sqe->__pad2[1] = sqe->__pad2[2] = 0;
+	sqe->buf_index = 0;
+	sqe->personality = 0;
+	sqe->file_index = 0;
+	sqe->__pad1 = 0;
+	sqe->__pad2 = 0;
+	sqe->__pad3 = 0;
 }
 
 static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd, const char *path, int flags, mode_t mode)
@@ -57,11 +74,11 @@ static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 
 // int unsigned cnt = 0;
 // int unsigned nr_of_write_repeats = 0;
-SEC("iouring.s/") 
+SEC("iouring") 
 int open_callback(struct io_uring_bpf_ctx *ctx)
 {
       struct io_uring_sqe sqe;
-	struct io_uring_cqe cqe = {};
+	struct io_uring_cqe cqe;
       uint32_t key = 0;
       int ret;
       ebpf_context_t *context;
@@ -69,11 +86,11 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
       if(!context)
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
             return 0; 
       }  
 
-      ret = iouring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
+      ret = bpf_io_uring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
       if(cqe.res >= 0)
       {
             context->fd = cqe.res;
@@ -81,7 +98,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       }
       else
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, OPEN_ERROR, cqe.res, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, OPEN_ERROR, cqe.res, 0);
             return 0;
       }
 
@@ -89,21 +106,21 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
       sqe.flags = IOSQE_IO_HARDLINK;
-      iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       io_uring_prep_bpf(&sqe, READ_PROG_IDX, 0);  
       sqe.cq_idx = SINK_CQ_IDX;
       sqe.user_data = 2004;
-      iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       return 0;
 }
 
-SEC("iouring.s/") //.s = .is_sleepable = true
+SEC("iouring")
 int read_callback(struct io_uring_bpf_ctx *ctx)
 {
       struct io_uring_sqe sqe;
-	struct io_uring_cqe cqe = {};
+	struct io_uring_cqe cqe;
       uint32_t key = 0;
       int ret;
       ebpf_context_t *context;
@@ -111,13 +128,13 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
       context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
       if(!context)
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
             return 0; 
       }
 
       // iouring_reap_cqe(ctx, SINK_CQ_IDX, &cqe, sizeof(cqe));
 
-      ret = iouring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
+      ret = bpf_io_uring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
       if (cqe.res > 0)
       {
             // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 22222, 22222, 0);
@@ -129,12 +146,12 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             sqe.cq_idx = WRITE_CQ_IDX;
             sqe.user_data = 98787;
             sqe.flags = IOSQE_IO_HARDLINK;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, WRITE_PROG_IDX, 0);
             sqe.cq_idx = SINK_CQ_IDX;
             sqe.user_data = 2004;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             // context->write_offset += cqe.res; //TODO: Eigtl erst nachem der write-call zurückgekehrt ist. Sollte aber eigtl. auch so klappen.
       }
@@ -148,26 +165,26 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             sqe.cq_idx = CLOSE_CQ_IDX;
             sqe.user_data = 587;
             sqe.flags = IOSQE_IO_HARDLINK;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, CLOSE_PROG_IDX, 0);
             sqe.cq_idx = SINK_CQ_IDX;
             sqe.user_data = 2004;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
       }
       else //error read-sqe
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, READ_ERROR, cqe.res, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, READ_ERROR, cqe.res, 0);
       }
 
       return 0;
 }
 
-SEC("iouring.s/") 
+SEC("iouring") 
 int write_callback(struct io_uring_bpf_ctx *ctx)
 {
       struct io_uring_sqe sqe;
-	struct io_uring_cqe cqe = {};
+	struct io_uring_cqe cqe;
       uint32_t key = 0;
       int ret;
       ebpf_context_t *context;
@@ -175,11 +192,11 @@ int write_callback(struct io_uring_bpf_ctx *ctx)
       context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
       if(!context)
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
             return 0; 
       }
 
-      ret = iouring_reap_cqe(ctx, WRITE_CQ_IDX, &cqe, sizeof(cqe));
+      ret = bpf_io_uring_reap_cqe(ctx, WRITE_CQ_IDX, &cqe, sizeof(cqe));
       if (cqe.res > 0)
       {
             context->write_offset += cqe.res;
@@ -187,7 +204,7 @@ int write_callback(struct io_uring_bpf_ctx *ctx)
       }
       else
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, cqe.res, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, cqe.res, 0);
             // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, WRITE_ERROR, nr_of_write_repeats, 0);
             return 0;
       }
@@ -196,40 +213,40 @@ int write_callback(struct io_uring_bpf_ctx *ctx)
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
       sqe.flags = IOSQE_IO_HARDLINK;
-      iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       io_uring_prep_bpf(&sqe, READ_PROG_IDX, 0);  
       sqe.cq_idx = SINK_CQ_IDX;
       sqe.user_data = 2004;
-      iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       return 0;
 }
 
-SEC("iouring.s/") //.s = .is_sleepable = true
+SEC("iouring")
 int close_callback(struct io_uring_bpf_ctx *ctx)
 {
       struct io_uring_sqe sqe;
-	struct io_uring_cqe cqe = {};
+	struct io_uring_cqe cqe;
       uint32_t key = 0;
       ebpf_context_t *context;
 
       context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
       if(!context)
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CONTEXT_ERROR, 22222, 0);
             return 0; 
       }
 
-      int ret = iouring_reap_cqe(ctx, CLOSE_CQ_IDX, &cqe, sizeof(cqe));
+      int ret = bpf_io_uring_reap_cqe(ctx, CLOSE_CQ_IDX, &cqe, sizeof(cqe));
 
       if (cqe.res != 0)
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CLOSE_LAST_FILE_ERROR, cqe.res, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CLOSE_LAST_FILE_ERROR, cqe.res, 0);
       }
       else if (context->current_file_idx == context->nr_of_files) //Done, only end program when last file is closed
       {
-            iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, CAT_COMPLETE, 22222, 0);
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CAT_COMPLETE, 22222, 0);
       }
       else //Open new file
       {
@@ -238,12 +255,12 @@ int close_callback(struct io_uring_bpf_ctx *ctx)
             sqe.cq_idx = OPEN_CQ_IDX;
             sqe.user_data = 6879;
             sqe.flags = IOSQE_IO_HARDLINK;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, OPEN_PROG_IDX, 0);
             sqe.cq_idx = SINK_CQ_IDX;
             sqe.user_data = 2004;
-            iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
       }
 
       return 0;
