@@ -10,6 +10,7 @@
 // #include <bpf/bpf_helper_defs.h>
 
 // #define MAX_LOOP 1
+#define STDOUT_FILENO_FIX 1
 
 struct bpf_map_def SEC("maps") context_map =
 {
@@ -142,10 +143,10 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             context->read_offset += cqe.res;
             context->nr_of_bytes_to_write = cqe.res; // TODO: Necessary?!
 
-            io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, cqe.res, context->write_offset);
+            io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO_FIX, context->buffer_userspace_ptr, cqe.res, context->write_offset);
             sqe.cq_idx = WRITE_CQ_IDX;
             sqe.user_data = 98787;
-            sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, WRITE_PROG_IDX, 0);
