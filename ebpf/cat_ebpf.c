@@ -95,6 +95,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       if(cqe.res >= 0)
       {
             context->fd = cqe.res;
+            context->fixed_fd = context->current_file_idx + 2;
             context->read_offset = 0;
       }
       else
@@ -103,10 +104,10 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
             return 0;
       }
 
-      io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
+      io_uring_prep_rw(IORING_OP_READ, &sqe, context->fixed_fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
-      sqe.flags = IOSQE_IO_HARDLINK;
+      sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
       bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       io_uring_prep_bpf(&sqe, READ_PROG_IDX, 0);  
@@ -210,10 +211,10 @@ int write_callback(struct io_uring_bpf_ctx *ctx)
             return 0;
       }
 
-      io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
+      io_uring_prep_rw(IORING_OP_READ, &sqe, context->fixed_fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
-      sqe.flags = IOSQE_IO_HARDLINK;
+      sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
       bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
       io_uring_prep_bpf(&sqe, READ_PROG_IDX, 0);  
@@ -256,6 +257,7 @@ int close_callback(struct io_uring_bpf_ctx *ctx)
             sqe.cq_idx = OPEN_CQ_IDX;
             sqe.user_data = 6879;
             sqe.flags = IOSQE_IO_HARDLINK;
+            sqe.file_index = context->current_file_idx + 2; // index is 0 not to use and index 1 is STDOUT --> +2
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, OPEN_PROG_IDX, 0);

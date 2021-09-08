@@ -180,8 +180,14 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             printf("get sqe #2 failed\n");
             return -1;
       }
+// static inline void io_uring_prep_openat_direct(struct io_uring_sqe *sqe,
+// 					       int dfd, const char *path,
+// 					       int flags, mode_t mode,
+// 					       unsigned file_index)
+
+
       // printf("argv: %s\n", *argv);
-      io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
+      io_uring_prep_openat_direct(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR, 2);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = OPEN_CQ_IDX;
@@ -279,9 +285,11 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       //fclose(f);
       //free(fullPath);
       //free(fullPath2);
-      //bpf_object__unload(bpf_obj);
-      //bpf_object__close(bpf_obj);
+      // bpf_object__unload(bpf_obj);
+      // bpf_object__close(bpf_obj);
       //munmap(mmapped_context_map_ptr, map_sz); //Noetig?
+      // io_uring_queue_exit(&ring);
+
       
 	return EXIT_SUCCESS;
 }
