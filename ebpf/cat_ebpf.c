@@ -12,7 +12,7 @@
 // #include <bpf/bpf_helper_defs.h>
 
 // #define MAX_LOOP 1
-#define STDOUT_FILENO_FIX 1
+#define STDOUT_FILENO_FIX MAX_FDS
 
 struct bpf_map_def SEC("maps") context_map =
 {
@@ -97,7 +97,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       if(cqe.res >= 0)
       {
 #ifdef IO_URING_FIXED_FILE
-            context->fixed_fd = context->current_file_idx + 2;
+            context->fixed_fd = context->current_file_idx;
 #else      
             context->fd = cqe.res;
 #endif
@@ -109,6 +109,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       }
       else
       {
+            // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, context->fixed_fd, context->current_file_idx, 0);
             bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, OPEN_ERROR, cqe.res, 0);
             return 0;
       }
@@ -290,13 +291,13 @@ int close_callback(struct io_uring_bpf_ctx *ctx)
       }
       else //Open new file
       {
-            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, 44444, 0);
+            // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, context->current_file_idx, 0);
             io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
             sqe.cq_idx = OPEN_CQ_IDX;
             sqe.user_data = 6879;
             sqe.flags = IOSQE_IO_HARDLINK;
 #ifdef IO_URING_FIXED_FILE
-            sqe.file_index = context->current_file_idx + 3; // encoded as index + 1 and 0 is not used and index 1 is STDOUT --> +3        
+            sqe.file_index = context->current_file_idx + 1;
 #endif
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 

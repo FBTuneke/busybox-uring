@@ -61,7 +61,12 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       ebpf_context_t *context_ptr;
       int context_map_fd;
       char buf_path[PATH_MAX];
-      int fixed_fds[10] = {-1, STDOUT_FILENO, -1, -1, -1, -1, -1, -1, -1, -1};
+      int fixed_fds[MAX_FDS + 1];
+
+      for(int i = 0; i < MAX_FDS; i++)
+            fixed_fds[i] = -1;
+
+      fixed_fds[MAX_FDS] = STDOUT_FILENO;
 
 	if (!*argv)
 		argv = (char**) &bb_argv_dash;	
@@ -157,7 +162,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       context_ptr->buffer_userspace_ptr = context_ptr->buffer;
 
 #ifdef IO_URING_FIXED_FILE
-      ret = io_uring_register_files(&ring, fixed_fds, 10);
+      ret = io_uring_register_files(&ring, fixed_fds, MAX_FDS + 1);
       if (ret < 0) 
       {
             printf("reg failed %d\n", ret);
@@ -190,7 +195,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 
       // printf("argv: %s\n", *argv);
 #ifdef IO_URING_FIXED_FILE
-      io_uring_prep_openat_direct(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR, 2);
+      io_uring_prep_openat_direct(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR, 0);
 #else
       io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
 #endif
