@@ -50,6 +50,7 @@
 #include "../../linux/tools/lib/bpf/bpf.h"
 
 #include <time.h>
+#include <math.h>
 
 #define NR_OF_BPF_PROGS 1
 
@@ -156,6 +157,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	// int nrOfCloses = 0;
 	// int nrOfCurrentEntries = 0;
 	// char* read_buffer;
+      int *fixed_fds;
+      int nr_of_output_files;
 
 	// read_buffer = malloc(READ_BUFFER_SIZE * sizeof(char));
 
@@ -293,7 +296,24 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       context_ptr->cnt = cnt;
       context_ptr->read_buffer_userspace_base_ptr = context_ptr->read_buffer;
       context_ptr->pfx_buffer_userspace_base_ptr = context_ptr->pfx_buffer;
+      context_ptr->fixed_fd = 1;
       memcpy(context_ptr->pfx_buffer, pfx, context_ptr->pfx_len + 1);
+
+#ifdef IO_URING_FIXED_FILE
+      nr_of_output_files = 1000; //Max 1024 fds gleichzeitig offen
+      fixed_fds = (int*) malloc((nr_of_output_files + 1) * sizeof(int));
+      fixed_fds[0] = STDIN_FILENO;
+
+      for(int i = 1; i < nr_of_output_files + 1; i++)
+            fixed_fds[i] = -1;
+
+      ret = io_uring_register_files(&ring, fixed_fds, nr_of_output_files);
+      if (ret < 0) 
+      {
+            printf("reg failed %d\n", ret);
+            exit(1);
+      }
+#endif
 
       ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
       if(ret < 0)
@@ -312,10 +332,18 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             printf("get sqe #1 failed\n");
             return -1;
       }
+      
+#ifdef IO_URING_FIXED_FILE
+      io_uring_prep_read(sqe, STDIN_FILENO_FIX, context_ptr->read_buffer, READ_BUFFER_SIZE, 0);
+      sqe->user_data = 99;
+      sqe->flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
+      sqe->cq_idx = READ_CQ_IDX;
+#else
       io_uring_prep_read(sqe, STDIN_FILENO, context_ptr->read_buffer, READ_BUFFER_SIZE, 0);
       sqe->user_data = 99;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = READ_CQ_IDX;
+#endif
 
       sqe = io_uring_get_sqe(&ring);
       if (!sqe)
@@ -323,7 +351,12 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             printf("get sqe #2 failed\n");
             return -1;
       }
+
+#ifdef IO_URING_FIXED_FILE
+      io_uring_prep_openat_direct(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, context_ptr->fixed_fd);
+#else
       io_uring_prep_openat(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+#endif
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = OPEN_CQ_IDX;

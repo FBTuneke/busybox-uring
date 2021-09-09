@@ -36,6 +36,9 @@ typedef unsigned long int longword;
 
 #define AT_FDCWD -100
 
+#define STDIN_FILENO_FIX 0
+
+
 typedef struct _ebpf_context
 {
       char read_buffer[READ_BUFFER_SIZE];
@@ -46,4 +49,5 @@ typedef struct _ebpf_context
       uint16_t suffix_len;
       uint16_t pfx_len;
       longword read_buffer_base_int; //ARGH! Verifier erlaubt keine modulo-Operation auf Addressen, also erst in Variable speichern. In normaler Stack-Variable meckert er auch. Aus der Map geht's klar.
+      unsigned int fixed_fd;
 } ebpf_context_t;
