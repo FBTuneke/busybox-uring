@@ -61,7 +61,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       ebpf_context_t *context_ptr;
       int context_map_fd;
       char buf_path[PATH_MAX];
-      int fixed_fds[2] = {-1, STDOUT_FILENO};
+      int fixed_fds[10] = {-1, STDOUT_FILENO, -1, -1, -1, -1, -1, -1, -1, -1};
 
 	if (!*argv)
 		argv = (char**) &bb_argv_dash;	
@@ -82,7 +82,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             exit(0);
       }
 
-      // libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
+      libbpf_set_print(libbpf_print); //setze libbpf error und debug callback
       bump_memlock_rlimit();
 
       //struct timeval begin, end;
@@ -156,8 +156,8 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       context_ptr->nr_of_files = argc - 1;
       context_ptr->buffer_userspace_ptr = context_ptr->buffer;
 
-      ret = io_uring_register_files(&ring, fixed_fds, 2);
-      if (ret) 
+      ret = io_uring_register_files(&ring, fixed_fds, 10);
+      if (ret < 0) 
       {
             printf("reg failed %d\n", ret);
             exit(1);
@@ -188,6 +188,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
 
       // printf("argv: %s\n", *argv);
       io_uring_prep_openat_direct(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR, 2);
+      // io_uring_prep_openat(sqe, AT_FDCWD, *argv, O_RDONLY, S_IRUSR | S_IWUSR);
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
       sqe->cq_idx = OPEN_CQ_IDX;
@@ -233,8 +234,10 @@ int FAST_FUNC bb_cat(char **argv, int argc)
             io_uring_cqe_seen(&ring, cqe);
             
             // printf("\ncqe->user_data: %llu\n", cqe->user_data);
+            fprintf(stderr, "\ncqe->user_data: %llu\n", cqe->user_data);
             //fprintf(f2, "\ncqe->user_data: %llu\n", cqe->user_data);
             // printf("cqe->res: %i\n", cqe->res);
+            fprintf(stderr, "cqe->res: %i\n", cqe->res);
             //fprintf(f2, "cqe->res: %i\n", cqe->res);
 
             //rewind(f2);

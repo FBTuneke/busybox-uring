@@ -1,3 +1,5 @@
+// #define _GNU_SOURCE
+
 #include <inttypes.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -97,6 +99,10 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
             context->fd = cqe.res;
             context->fixed_fd = context->current_file_idx + 2;
             context->read_offset = 0;
+
+            // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 1110100, cqe.res, 0);
+            // return 0;
+
       }
       else
       {
@@ -104,6 +110,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
             return 0;
       }
 
+      // io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       io_uring_prep_rw(IORING_OP_READ, &sqe, context->fixed_fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
@@ -144,6 +151,7 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             context->read_offset += cqe.res;
             context->nr_of_bytes_to_write = cqe.res; // TODO: Necessary?!
 
+            // io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO, context->buffer_userspace_ptr, cqe.res, context->write_offset);
             io_uring_prep_rw(IORING_OP_WRITE, &sqe, STDOUT_FILENO_FIX, context->buffer_userspace_ptr, cqe.res, context->write_offset);
             sqe.cq_idx = WRITE_CQ_IDX;
             sqe.user_data = 98787;
@@ -163,14 +171,14 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
 
             // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 
-            io_uring_prep_close(&sqe, context->fd);
-            sqe.cq_idx = CLOSE_CQ_IDX;
-            sqe.user_data = 587;
-            sqe.flags = IOSQE_IO_HARDLINK;
-            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+            // io_uring_prep_close(&sqe, context->fd);
+            // sqe.cq_idx = CLOSE_CQ_IDX;
+            // sqe.user_data = 587;
+            // sqe.flags = IOSQE_IO_HARDLINK;
+            // bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, CLOSE_PROG_IDX, 0);
-            sqe.cq_idx = SINK_CQ_IDX;
+            sqe.cq_idx = CLOSE_CQ_IDX;
             sqe.user_data = 2004;
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
       }
@@ -211,6 +219,7 @@ int write_callback(struct io_uring_bpf_ctx *ctx)
             return 0;
       }
 
+      // io_uring_prep_rw(IORING_OP_READ, &sqe, context->fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       io_uring_prep_rw(IORING_OP_READ, &sqe, context->fixed_fd, context->buffer_userspace_ptr, BUFFER_SIZE, context->read_offset);
       sqe.cq_idx = READ_CQ_IDX;
       sqe.user_data = 9014;
@@ -257,7 +266,7 @@ int close_callback(struct io_uring_bpf_ctx *ctx)
             sqe.cq_idx = OPEN_CQ_IDX;
             sqe.user_data = 6879;
             sqe.flags = IOSQE_IO_HARDLINK;
-            sqe.file_index = context->current_file_idx + 2; // index is 0 not to use and index 1 is STDOUT --> +2
+            sqe.file_index = context->current_file_idx + 3; // encoded as index + 1 and 0 is not used and index 1 is STDOUT --> +3
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
             io_uring_prep_bpf(&sqe, OPEN_PROG_IDX, 0);
