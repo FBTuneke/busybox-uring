@@ -355,7 +355,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 #ifdef IO_URING_FIXED_FILE
       io_uring_prep_openat_direct(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, context_ptr->fixed_fd);
 #else
-      io_uring_prep_openat(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+      io_uring_prep_openat(sqe, AT_FDCWD, pfx, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 #endif
       sqe->user_data = 125;
       sqe->flags = IOSQE_IO_HARDLINK;
