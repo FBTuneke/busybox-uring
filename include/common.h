@@ -1,4 +1,5 @@
 #pragma once
+
 #include "../include/libbb.h"
 
 static inline void exe_path(char *str)

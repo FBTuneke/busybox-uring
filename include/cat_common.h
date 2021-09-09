@@ -3,6 +3,7 @@
 #include "../../linux/usr/include/linux/bpf.h"
 #include "../../linux/usr/include/linux/io_uring.h"
 #include <stdbool.h>
+#include "../include/conditional_compilation.h"
 
 enum { BUFFER_SIZE = 4096 };
 
