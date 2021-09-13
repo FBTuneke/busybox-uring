@@ -122,6 +122,8 @@ int split(struct io_uring_bpf_ctx *ctx)
             {
                   fd = cqe.res;
 
+                  // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 888888, context->fixed_fds[context->fixed_fd & (FIXED_FDS_SIZE - 1)], 0);
+
                   // pfx = next_file(pfx, context->suffix_len, context->pfx_len);
 //==========next_file() begin. Kann ich nicht als Funktion implementieren, Zeigerarithmetik mit "normalem" Stack-Zeiger gefaellt dem Verifier nicht.
                   int backwards_index;
@@ -157,7 +159,7 @@ int split(struct io_uring_bpf_ctx *ctx)
                         //        //Aus Kernelmodus zurückkehren und printen
                         // }
 
-                        context->fixed_fd++;
+                        // context->fixed_fd++;
 
 #ifndef IO_URING_FIXED_FILE
                         io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
@@ -165,10 +167,17 @@ int split(struct io_uring_bpf_ctx *ctx)
                         sqe.flags = IOSQE_IO_HARDLINK;
 				sqe.user_data = 187;
 				bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+// #else
+//                         io_uring_prep_close(&sqe, context->fixed_fds - 1); //TODO: vllt callback für close?
+//                         sqe.cq_idx = DEFAULT_CQ_IDX;
+//                         sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
+// 				sqe.user_data = 187;
+//                         // sqe.file_index = context->fixed_fd;
+// 				bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 #endif
-                        
+                                    
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-                        sqe.cq_idx = OPEN_CQ_IDX;
+                        sqe.cq_idx = DEFAULT_CQ_IDX;
                         sqe.user_data = 6879;
                         sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
 #ifdef IO_URING_FIXED_FILE
@@ -243,23 +252,30 @@ int split(struct io_uring_bpf_ctx *ctx)
 
             // Fall: Buffer zu Ende gelesen und Datei zu Ende geschrieben. Tritt dies auf, dann greift die obere Abfrage (olFd != fd) nicht, da fd erst in dem n�chsten
 		// Schleifendurchlauf ge�ndert werden w�rde, den es aber nicht mehr gibt. Also muss hier noch mal geclosed werden.
-		if(!remaining) 
-		{
-#ifndef IO_URING_FIXED_FILE
-                  io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
-                  sqe.cq_idx = SINK_CQ_IDX;
-                  // sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
-			sqe.user_data = 587;
-                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
-#endif
+// 		if(!remaining) 
+// 		{
+// #ifndef IO_URING_FIXED_FILE
+//                   io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
+//                   sqe.cq_idx = SINK_CQ_IDX;
+//                   // sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben,
+// 			sqe.user_data = 587;
+//                   bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+// #else
+//                   io_uring_prep_close(&sqe, context->fixed_fd); //TODO: vllt callback für close?
+//                   sqe.cq_idx = SINK_CQ_IDX;
+//                   // sqe.flags = IOSQE_FIXED_FILE;
+// 			sqe.user_data = 187;
+//                   // sqe.file_index = context->fixed_fd + 1;
+// 			bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+// #endif
 
-                  // //Optimierung: Hier schonmal auf Verdacht aufmachen - muss dann unten im else-Zweig aber auch geschlossen werden.
-                  // io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
-                  // sqe.cq_idx = OPEN_CQ_IDX;
-                  // sqe.flags = IOSQE_IO_DRAIN; 
-                  // sqe.user_data = 4778;
-                  // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
-		}
+//                   // //Optimierung: Hier schonmal auf Verdacht aufmachen - muss dann unten im else-Zweig aber auch geschlossen werden.
+//                   // io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+//                   // sqe.cq_idx = OPEN_CQ_IDX;
+//                   // sqe.flags = IOSQE_IO_DRAIN; 
+//                   // sqe.user_data = 4778;
+//                   // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
+// 		}
 
             return 0;
 
