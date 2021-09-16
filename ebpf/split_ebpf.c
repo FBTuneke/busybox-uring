@@ -177,7 +177,7 @@ int split(struct io_uring_bpf_ctx *ctx)
 #endif
                                     
                         io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-                        sqe.cq_idx = DEFAULT_CQ_IDX;
+                        sqe.cq_idx = OPEN_CQ_IDX;
                         sqe.user_data = 6879;
                         sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
 #ifdef IO_URING_FIXED_FILE
