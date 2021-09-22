@@ -157,8 +157,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	// int nrOfCloses = 0;
 	// int nrOfCurrentEntries = 0;
 	// char* read_buffer;
-      int *fixed_fds;
       int nr_of_output_files;
+      int fixed_fds[FIXED_FDS_SIZE];
 
 	// read_buffer = malloc(READ_BUFFER_SIZE * sizeof(char));
 
@@ -300,14 +300,14 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       memcpy(context_ptr->pfx_buffer, pfx, context_ptr->pfx_len + 1);
 
 #ifdef IO_URING_FIXED_FILE
-      nr_of_output_files = 1000; //Max 1024 fds gleichzeitig offen
-      fixed_fds = (int*) malloc((nr_of_output_files + 1) * sizeof(int));
+      // nr_of_output_files = 1000; //Max 1024 fds gleichzeitig offen
+      // fixed_fds = (int*) malloc((nr_of_output_files + 1) * sizeof(int));
       fixed_fds[0] = STDIN_FILENO;
-
-      for(int i = 1; i < nr_of_output_files + 1; i++)
+      
+      for(int i = 1; i < FIXED_FDS_SIZE; i++)
             fixed_fds[i] = -1;
 
-      ret = io_uring_register_files(&ring, fixed_fds, nr_of_output_files);
+      ret = io_uring_register_files(&ring, fixed_fds, FIXED_FDS_SIZE);
       if (ret < 0) 
       {
             printf("reg failed %d\n", ret);

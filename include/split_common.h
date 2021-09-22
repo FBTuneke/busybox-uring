@@ -38,6 +38,7 @@ typedef unsigned long int longword;
 
 #define STDIN_FILENO_FIX 0
 
+#define FIXED_FDS_SIZE 2
 
 typedef struct _ebpf_context
 {
