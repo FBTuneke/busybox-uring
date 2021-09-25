@@ -52,7 +52,7 @@
 #include <time.h>
 #include <math.h>
 
-#define NR_OF_BPF_PROGS 1
+#define NR_OF_BPF_PROGS 2
 
 
 #if ENABLE_FEATURE_SPLIT_FANCY
@@ -157,8 +157,8 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	// int nrOfCloses = 0;
 	// int nrOfCurrentEntries = 0;
 	// char* read_buffer;
+      int *fixed_fds;
       int nr_of_output_files;
-      int fixed_fds[FIXED_FDS_SIZE];
 
 	// read_buffer = malloc(READ_BUFFER_SIZE * sizeof(char));
 
@@ -300,14 +300,14 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       memcpy(context_ptr->pfx_buffer, pfx, context_ptr->pfx_len + 1);
 
 #ifdef IO_URING_FIXED_FILE
-      // nr_of_output_files = 1000; //Max 1024 fds gleichzeitig offen
-      // fixed_fds = (int*) malloc((nr_of_output_files + 1) * sizeof(int));
+      nr_of_output_files = 1000; //Max 1024 fds gleichzeitig offen
+      fixed_fds = (int*) malloc((nr_of_output_files + 1) * sizeof(int));
       fixed_fds[0] = STDIN_FILENO;
-      
-      for(int i = 1; i < FIXED_FDS_SIZE; i++)
+
+      for(int i = 1; i < nr_of_output_files + 1; i++)
             fixed_fds[i] = -1;
 
-      ret = io_uring_register_files(&ring, fixed_fds, FIXED_FDS_SIZE);
+      ret = io_uring_register_files(&ring, fixed_fds, nr_of_output_files);
       if (ret < 0) 
       {
             printf("reg failed %d\n", ret);
@@ -368,7 +368,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
             return -1;
       }
       io_uring_prep_nop(sqe);
-	sqe->off = SPLIT_PROG; //Scheint der Index des eBPF-Programms zu sein.
+	sqe->off = OPEN_PROG_IDX; //Scheint der Index des eBPF-Programms zu sein.
 	sqe->opcode = IORING_OP_BPF;
 	sqe->flags = 0;
       sqe->cq_idx = SINK_CQ_IDX;
@@ -409,9 +409,9 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       struct bpf_prog_info bpf_info = {};
       uint32_t info_len = sizeof(bpf_info);
 
-      ret = bpf_obj_get_info_by_fd(prog_fds[0], &bpf_info, &info_len);
-	if(ret != 0)
-            printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
+      // ret = bpf_obj_get_info_by_fd(prog_fds[0], &bpf_info, &info_len);
+	// if(ret != 0)
+      //       printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
       
       char *fullPath;
       char *fileName = "/split-bpf-log.txt";
@@ -428,20 +428,20 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
       printf("Verbrauchte Zeit fuer das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
       fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
-      printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
-      fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
-      printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
-      fprintf(f, "Jited prog length: %u\n", bpf_info.jited_prog_len);
-      printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
-      fprintf(f, "load time (ns since boottime): %llu\n", bpf_info.load_time);
-      printf("nr func info: %u\n", bpf_info.nr_func_info);
-      fprintf(f, "nr func info: %u\n", bpf_info.nr_func_info);
-      printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
-      fprintf(f, "nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
-      printf("run count: %llu\n", bpf_info.run_cnt);
-      fprintf(f, "run count: %llu\n", bpf_info.run_cnt);
-      printf("run time ns: %llu\n", bpf_info.run_time_ns);
-      fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
+      // printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      // fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
+      // printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
+      // fprintf(f, "Jited prog length: %u\n", bpf_info.jited_prog_len);
+      // printf("load time (ns since boottime): %llu\n", bpf_info.load_time);
+      // fprintf(f, "load time (ns since boottime): %llu\n", bpf_info.load_time);
+      // printf("nr func info: %u\n", bpf_info.nr_func_info);
+      // fprintf(f, "nr func info: %u\n", bpf_info.nr_func_info);
+      // printf("nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      // fprintf(f, "nr jited func lens: %u\n", bpf_info.nr_jited_func_lens);
+      // printf("run count: %llu\n", bpf_info.run_cnt);
+      // fprintf(f, "run count: %llu\n", bpf_info.run_cnt);
+      // printf("run time ns: %llu\n", bpf_info.run_time_ns);
+      // fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
 
       printf("\n======END======\n");
       fprintf(f, "\n======END======\n");

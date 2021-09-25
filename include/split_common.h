@@ -29,7 +29,8 @@ typedef unsigned long int longword;
 #define OPEN_CQ_IDX 2
 #define SINK_CQ_IDX 3
 
-#define SPLIT_PROG 0
+#define OPEN_PROG_IDX 0
+#define SPLIT_PROG_IDX 1
 
 #define SPLIT_COMPLETE 99997
 #define SUFFIX_EXHAUSTED 99996
@@ -43,7 +44,7 @@ typedef unsigned long int longword;
 typedef struct _ebpf_context
 {
       char read_buffer[READ_BUFFER_SIZE];
-      int cnt;
+      off_t cnt; //number of lines to split by
       char *read_buffer_userspace_base_ptr;
       char pfx_buffer[NAME_MAX + 1]; //NAME_MAX ist von busybox = 255.
       char *pfx_buffer_userspace_base_ptr;

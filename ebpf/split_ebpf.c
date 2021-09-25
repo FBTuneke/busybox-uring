@@ -77,12 +77,200 @@ uint32_t to_write = 0;
 uint32_t offset_read = 0;
 uint32_t offset_write = 0;
 off_t remaining = 0;
-int fd;
-// char *read_buffer_kernelspace_ptr, *read_buffer_userspace_ptr;
+int out_fd;
 uint32_t global_read_buffer_offset = 0;
 int cnt = 0;
 
 SEC("iouring")
+int open_callback(struct io_uring_bpf_ctx *ctx)
+{
+      struct io_uring_sqe sqe;
+	struct io_uring_cqe cqe;
+      uint32_t key = 0;
+      int ret;
+      ebpf_context_t *context;
+      
+      context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
+      if(!context)
+      {
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 27, 277, 0);
+            return 0;  
+      }
+
+      ret = bpf_io_uring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
+
+      if(ret != 0)
+      {
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 27500, ret, 0);
+            return 0;
+      }
+
+      out_fd = cqe.res;
+
+      //==========next_file() begin. Kann ich nicht als Funktion implementieren, Zeigerarithmetik mit "normalem" Stack-Zeiger gefaellt dem Verifier nicht.
+      int backwards_index;
+      for (int i = 1; i < NAME_MAX; i++)
+      {
+            backwards_index = context->pfx_len - i;
+            if (context->pfx_buffer[backwards_index & NAME_MAX] < 'z')
+            {
+                  context->pfx_buffer[backwards_index & NAME_MAX] += 1;
+                  break;
+            }
+
+            if (i + 1 > context->suffix_len) //Filenamen aufgebraucht!
+            {
+                  return 0;
+                  bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SUFFIX_EXHAUSTED, 11187, 0);
+            }
+
+            context->pfx_buffer[backwards_index & NAME_MAX] = 'a';
+      }
+      //==========next_file() end
+
+      remaining = context->cnt;
+      offset_write = 0;
+
+      io_uring_prep_bpf(&sqe, SPLIT_PROG_IDX, 0);  
+      sqe.cq_idx = SINK_CQ_IDX;
+      sqe.user_data = 2004;
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+      return 0;
+}
+
+SEC("iouring")
+int split(struct io_uring_bpf_ctx *ctx)
+{
+      struct io_uring_sqe sqe;
+	struct io_uring_cqe cqe;
+      uint32_t key = 0;
+      int ret;
+      ebpf_context_t *context;
+
+      context = (ebpf_context_t *) bpf_map_lookup_elem(&context_map, &key); 
+      if(!context)
+      {
+            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 27, 277, 0);
+            return 0;  
+      } 
+
+      if(!bytes_read) //Nur wenn keine bytes mehr da sind existiert neuer read cqe
+      {
+            ret = bpf_io_uring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
+            if(ret != 0)
+            {
+                  bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 27800, ret, 0); 
+                  return 0;  
+            }
+
+            if(cqe.res < 0)
+            {
+                  bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 259000, cqe.res, 0); 
+                  return 0;
+            }
+
+            if(cqe.res == 0) //Fertig!
+            {
+                  bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SPLIT_COMPLETE, 22222, 0); //Aus Kernelmodus zurückkehren und printen
+                  return 0;
+            }
+
+            bytes_read = cqe.res;
+            context->read_buffer_base_int = (longword)context->read_buffer; //TODO: Nur ein mal im Userspace machen.
+            global_read_buffer_offset = 0;
+            offset_read += cqe.res;
+      }
+
+
+      for (int i = 0; i < READ_BUFFER_SIZE; i++) //Im schlechtesten Fall 1 Byte pro Zeile. Bounded Loop für Verifier..
+      {
+            if (!remaining)
+            {
+#ifndef IO_URING_FIXED_FILE
+                  io_uring_prep_close(&sqe, out_fd); //TODO: vllt callback für close?
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.flags = IOSQE_IO_HARDLINK;
+                  sqe.user_data = 187;
+                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+#endif
+
+                  io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+                  sqe.cq_idx = OPEN_CQ_IDX;
+                  sqe.user_data = 6879;
+                  sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
+#ifdef IO_URING_FIXED_FILE
+                  sqe.file_index = context->fixed_fd + 1; //encoded as index + 1
+#endif
+                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+                  io_uring_prep_bpf(&sqe, OPEN_PROG_IDX, 0);
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.user_data = 2004;
+                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+                  return 0;
+            }
+
+            uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
+
+            if (end) //Zeilenende gefunden
+            {
+                  --remaining;
+                  // to_write = (char*)char_ptr - read_buffer_kernelspace_ptr + 1;
+                  // to_write = bytes_read - (n - 1);
+                  // to_write = n;
+                  to_write = end - (context->read_buffer_base_int + global_read_buffer_offset) + 1;
+                  // return 0;
+            }
+            else
+            {
+                  to_write = bytes_read;
+            }
+
+            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, fd, 111111, 0);
+
+#ifdef IO_URING_FIXED_FILE
+            io_uring_prep_rw(IORING_OP_WRITE, &sqe, context->fixed_fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
+            sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
+#else
+            io_uring_prep_rw(IORING_OP_WRITE, &sqe, out_fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
+            sqe.flags = IOSQE_IO_HARDLINK;
+#endif
+            sqe.cq_idx = SINK_CQ_IDX;
+            sqe.user_data = 1014;
+            bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+            bytes_read -= to_write;
+            global_read_buffer_offset += to_write;
+            // read_buffer_kernelspace_ptr += to_write;
+            // read_buffer_userspace_ptr += to_write;
+            offset_write += to_write;
+
+            if (!bytes_read)
+                  break;
+      }
+
+#ifdef IO_URING_FIXED_FILE
+      io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO_FIX, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
+      sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
+#else
+      io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
+      sqe.flags = IOSQE_IO_HARDLINK; //Muss bleiben und nach den Writes kommen
+#endif
+      sqe.cq_idx = READ_CQ_IDX;
+      sqe.user_data = 9014;
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+      io_uring_prep_bpf(&sqe, SPLIT_PROG_IDX, 0);
+      sqe.cq_idx = SINK_CQ_IDX;
+      sqe.user_data = 9004;
+      bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+      return 0;
+}
+
+/*SEC("iouring")
 int split(struct io_uring_bpf_ctx *ctx)
 {
       struct io_uring_sqe sqe;
@@ -103,128 +291,128 @@ int split(struct io_uring_bpf_ctx *ctx)
       // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cnt, 111111, 0);
 
 
-      ret = bpf_io_uring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
-      if(ret == 0) //Erfolg, cqe war da!
-      {
-            bytes_read = cqe.res;
-            // read_buffer_kernelspace_ptr = context->read_buffer;
-            // read_buffer_userspace_ptr = context->read_buffer_userspace_base_ptr;
-            context->read_buffer_base_int = (longword)context->read_buffer; //TODO: Nur ein mal im Userspace machen.
-            global_read_buffer_offset = 0;
-            offset_read += cqe.res;
-      }
+      // ret = bpf_io_uring_reap_cqe(ctx, READ_CQ_IDX, &cqe, sizeof(cqe));
+      // if(ret == 0) //Erfolg, cqe war da!
+      // {
+      //       bytes_read = cqe.res;
+      //       // read_buffer_kernelspace_ptr = context->read_buffer;
+      //       // read_buffer_userspace_ptr = context->read_buffer_userspace_base_ptr;
+      //       context->read_buffer_base_int = (longword)context->read_buffer; //TODO: Nur ein mal im Userspace machen.
+      //       global_read_buffer_offset = 0;
+      //       offset_read += cqe.res;
+      // }
       
-      if(bytes_read > 0)
-      {
-            ret = bpf_io_uring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
-            // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cqe.res, 111111, 0);
-            if(ret == 0) //Erfolg, cqe war da!
-            {
-                  fd = cqe.res;
+//       if(bytes_read > 0)
+//       {
+//             ret = bpf_io_uring_reap_cqe(ctx, OPEN_CQ_IDX, &cqe, sizeof(cqe));
+//             // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, cqe.res, 111111, 0);
+//             if(ret == 0) //Erfolg, cqe war da!
+//             {
+//                   out_fd = cqe.res;
 
-                  // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 888888, context->fixed_fds[context->fixed_fd & (FIXED_FDS_SIZE - 1)], 0);
+//                   // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 888888, context->fixed_fds[context->fixed_fd & (FIXED_FDS_SIZE - 1)], 0);
 
-                  // pfx = next_file(pfx, context->suffix_len, context->pfx_len);
-//==========next_file() begin. Kann ich nicht als Funktion implementieren, Zeigerarithmetik mit "normalem" Stack-Zeiger gefaellt dem Verifier nicht.
-                  int backwards_index;
-                  for (int i = 1; i < NAME_MAX; i++)
-                  {
-                        backwards_index = context->pfx_len - i;
-                        if (context->pfx_buffer[backwards_index & NAME_MAX] < 'z')
-                        {
-                              context->pfx_buffer[backwards_index & NAME_MAX] += 1;
-                              break;
-                        }
+//                   // pfx = next_file(pfx, context->suffix_len, context->pfx_len);
+// //==========next_file() begin. Kann ich nicht als Funktion implementieren, Zeigerarithmetik mit "normalem" Stack-Zeiger gefaellt dem Verifier nicht.
+//                   int backwards_index;
+//                   for (int i = 1; i < NAME_MAX; i++)
+//                   {
+//                         backwards_index = context->pfx_len - i;
+//                         if (context->pfx_buffer[backwards_index & NAME_MAX] < 'z')
+//                         {
+//                               context->pfx_buffer[backwards_index & NAME_MAX] += 1;
+//                               break;
+//                         }
 
-                        if (i + 1 > context->suffix_len) //Filenamen aufgebraucht!
-                        {
-                              return 0;
-                              bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SUFFIX_EXHAUSTED, 11187, 0);
-                        }
+//                         if (i + 1 > context->suffix_len) //Filenamen aufgebraucht!
+//                         {
+//                               return 0;
+//                               bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SUFFIX_EXHAUSTED, 11187, 0);
+//                         }
 
-                        context->pfx_buffer[backwards_index & NAME_MAX] = 'a';
-                  }
-//==========next_file() end
+//                         context->pfx_buffer[backwards_index & NAME_MAX] = 'a';
+//                   }
+// //==========next_file() end
 
-                  remaining = context->cnt;
-                  offset_write = 0;
-            }
+//                   remaining = context->cnt;
+//                   offset_write = 0;
+//             }
 
-            for(int i = 0; i < READ_BUFFER_SIZE; i++) //Im schlechtesten Fall 1 Byte pro Zeile. Bounded Loop für Verifier..
-            {            
-                  if (!remaining) 
-			{
-				// if (!pfx) //suffixes exhausted -- 16.07.2021: ist jetzt oben in der Schleife von "next_file"-Funktionalitaet
-                        // {
-                        //        //Aus Kernelmodus zurückkehren und printen
-                        // }
+//             for(int i = 0; i < READ_BUFFER_SIZE; i++) //Im schlechtesten Fall 1 Byte pro Zeile. Bounded Loop für Verifier..
+//             {            
+//                   if (!remaining) 
+// 			{
+// 				// if (!pfx) //suffixes exhausted -- 16.07.2021: ist jetzt oben in der Schleife von "next_file"-Funktionalitaet
+//                         // {
+//                         //        //Aus Kernelmodus zurückkehren und printen
+//                         // }
 
-                        // context->fixed_fd++;
+//                         // context->fixed_fd++;
 
-#ifndef IO_URING_FIXED_FILE
-                        io_uring_prep_close(&sqe, fd); //TODO: vllt callback für close?
-                        sqe.cq_idx = SINK_CQ_IDX;
-                        sqe.flags = IOSQE_IO_HARDLINK;
-				sqe.user_data = 187;
-				bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
-#endif
+// #ifndef IO_URING_FIXED_FILE
+//                         io_uring_prep_close(&sqe, out_fd); //TODO: vllt callback für close?
+//                         sqe.cq_idx = SINK_CQ_IDX;
+//                         sqe.flags = IOSQE_IO_HARDLINK;
+// 				sqe.user_data = 187;
+// 				bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+// #endif
                                     
-                        io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-                        sqe.cq_idx = OPEN_CQ_IDX;
-                        sqe.user_data = 6879;
-                        sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
-#ifdef IO_URING_FIXED_FILE
-                        sqe.file_index = context->fixed_fd + 1; //encoded as index + 1
-#endif
-                        bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+//                         io_uring_prep_openat(&sqe, AT_FDCWD, context->pfx_buffer_userspace_base_ptr, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+//                         sqe.cq_idx = OPEN_CQ_IDX;
+//                         sqe.user_data = 6879;
+//                         sqe.flags = IOSQE_IO_HARDLINK; //Draining does not seem to work. --> Neue Kette
+// #ifdef IO_URING_FIXED_FILE
+//                         sqe.file_index = context->fixed_fd + 1; //encoded as index + 1
+// #endif
+//                         bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 				
-                        io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
-                        sqe.cq_idx = SINK_CQ_IDX;
-                        sqe.user_data = 2004;
-                        // sqe.flags = IOSQE_IO_HARDLINK;
-                        bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+//                         io_uring_prep_bpf(&sqe, SPLIT_PROG, 0);  
+//                         sqe.cq_idx = SINK_CQ_IDX;
+//                         sqe.user_data = 2004;
+//                         // sqe.flags = IOSQE_IO_HARDLINK;
+//                         bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
 
-                        return 0;
-			}
+//                         return 0;
+// 			}
 
-                  uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
+//                   uint64_t end = bpf_memchr(&context->read_buffer[global_read_buffer_offset & (READ_BUFFER_SIZE - 1)], bytes_read, '\n');
 
-                  if (end) //Zeilenende gefunden
-                  {
-                        --remaining;
-                        // to_write = (char*)char_ptr - read_buffer_kernelspace_ptr + 1;
-                        // to_write = bytes_read - (n - 1);
-                        // to_write = n;
-                        to_write = end - (context->read_buffer_base_int + global_read_buffer_offset) + 1;
-                        // return 0;
-                  }
-                  else
-                  {
-                        to_write = bytes_read;
-                  }
+//                   if (end) //Zeilenende gefunden
+//                   {
+//                         --remaining;
+//                         // to_write = (char*)char_ptr - read_buffer_kernelspace_ptr + 1;
+//                         // to_write = bytes_read - (n - 1);
+//                         // to_write = n;
+//                         to_write = end - (context->read_buffer_base_int + global_read_buffer_offset) + 1;
+//                         // return 0;
+//                   }
+//                   else
+//                   {
+//                         to_write = bytes_read;
+//                   }
 
-                  // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, fd, 111111, 0);
+//                   // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, fd, 111111, 0);
 
-#ifdef IO_URING_FIXED_FILE
-                  io_uring_prep_rw(IORING_OP_WRITE, &sqe, context->fixed_fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
-                  sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;  
-#else
-                  io_uring_prep_rw(IORING_OP_WRITE, &sqe, fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
-                  sqe.flags = IOSQE_IO_HARDLINK;                 
-#endif
-                  sqe.cq_idx = SINK_CQ_IDX;
-                  sqe.user_data = 1014;
-                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));        
+// #ifdef IO_URING_FIXED_FILE
+//                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, context->fixed_fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
+//                   sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;  
+// #else
+//                   io_uring_prep_rw(IORING_OP_WRITE, &sqe, out_fd, context->read_buffer_userspace_base_ptr + global_read_buffer_offset, to_write, offset_write);
+//                   sqe.flags = IOSQE_IO_HARDLINK;                 
+// #endif
+//                   sqe.cq_idx = SINK_CQ_IDX;
+//                   sqe.user_data = 1014;
+//                   bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));        
 
-			bytes_read -= to_write;
-                  global_read_buffer_offset += to_write;
-			// read_buffer_kernelspace_ptr += to_write;
-                  // read_buffer_userspace_ptr += to_write;
-			offset_write += to_write;
+// 			bytes_read -= to_write;
+//                   global_read_buffer_offset += to_write;
+// 			// read_buffer_kernelspace_ptr += to_write;
+//                   // read_buffer_userspace_ptr += to_write;
+// 			offset_write += to_write;
       
-                  if(!bytes_read)
-                        break;
-            }
+//                   if(!bytes_read)
+//                         break;
+//             }
 #ifdef IO_URING_FIXED_FILE
             io_uring_prep_rw(IORING_OP_READ, &sqe, STDIN_FILENO_FIX, context->read_buffer_userspace_base_ptr, READ_BUFFER_SIZE, offset_read);
             sqe.flags = IOSQE_IO_HARDLINK | IOSQE_FIXED_FILE;
@@ -255,13 +443,13 @@ int split(struct io_uring_bpf_ctx *ctx)
                   // iouring_queue_sqe(ctx, &sqe, sizeof(sqe));
 // 		}
 
-            return 0;
+            // return 0;
 
-      }
-      else
-      {
-            bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SPLIT_COMPLETE, 22222, 0); //Aus Kernelmodus zurückkehren und printen
-      }
+      // }
+      // else
+      // {
+      //       bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SPLIT_COMPLETE, 22222, 0); //Aus Kernelmodus zurückkehren und printen
+      // }
 
       return 0;
-}
+}*/
