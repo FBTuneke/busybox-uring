@@ -145,6 +145,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       // printf("argc: %i\n", argc);
       context_ptr->nr_of_files = argc - 1;
       context_ptr->buffer_userspace_ptr = context_ptr->buffer;
+      context_ptr->cq = OPEN_CQ_IDX;
 
       // ret = __sys_io_uring_register(ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS);
       ret = syscall(427, ring.ring_fd, IORING_REGISTER_BPF, prog_fds, NR_OF_BPF_PROGS); //Ist mir zu nervig das hier ordentlich einzubinden gerade.. scheiss Makefile.

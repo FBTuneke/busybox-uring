@@ -37,4 +37,5 @@ typedef struct _ebpf_context
       int fd;
       unsigned long long write_offset;
       unsigned long long read_offset;
+      char cq;
 } ebpf_context_t;
