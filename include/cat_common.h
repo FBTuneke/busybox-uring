@@ -38,7 +38,7 @@ typedef unsigned long int longword;
 
 typedef struct _ebpf_context
 {
-      char buffer[BUFFER_SIZE];
+      char buffer[BUFFER_SIZE]; //Kann in Anwendung.
       char *paths_userspace_ptr[MAX_FDS];
       char *buffer_userspace_ptr;
       unsigned int nr_of_files;
@@ -47,5 +47,5 @@ typedef struct _ebpf_context
       int fixed_fd;
       unsigned long long write_offset;
       unsigned long long read_offset;
-      unsigned long nr_of_bytes_to_write;
+      unsigned long nr_of_bytes_to_write; //können weggelassen werden denke ich
 } ebpf_context_t;
