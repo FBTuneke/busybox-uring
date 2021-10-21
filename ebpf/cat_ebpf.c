@@ -195,7 +195,7 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             else //Open new file
             {
                   // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, context->current_file_idx, 0);
-                  io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
+                  io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FILES - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
                   sqe.cq_idx = OPEN_CQ_IDX;
                   sqe.user_data = 6879;
                   sqe.flags = IOSQE_IO_HARDLINK;
