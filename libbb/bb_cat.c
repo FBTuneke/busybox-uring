@@ -61,12 +61,11 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       ebpf_context_t *context_ptr;
       int context_map_fd;
       char buf_path[PATH_MAX];
-      int fixed_fds[MAX_FDS + 1];
+      int fixed_fds[2];
 
-      for(int i = 0; i < MAX_FDS; i++)
-            fixed_fds[i] = -1;
+      fixed_fds[0] = -1;
 
-      fixed_fds[MAX_FDS] = STDOUT_FILENO;
+      fixed_fds[1] = STDOUT_FILENO;
 
 	if (!*argv)
 		argv = (char**) &bb_argv_dash;	
@@ -149,8 +148,11 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       //TODO: Durch argc ersetzen - ist aber unused in cat.c? - Rausfinden ob ich das einfach ändern oder sogar direkt benutzen kann.
       for(int i = 0; i < argc - 1; i++)
       {
-            if(!*argv || argc >= MAX_FILES)
+            if(!*argv || argc >= MAX_FILES){
+                  printf("Zu viele Argumente\n");
                   break;
+            }
+                  
             context_ptr->paths_userspace_ptr[i] = argv[i];
             // printf("argv[%i]: %s\n", i, argv[i]);
             // printf("Address of argv[%i]: %llu\n", i, (unsigned long) argv[i]);
@@ -163,7 +165,7 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       context_ptr->fixed_fd = 0;
 
 #ifdef IO_URING_FIXED_FILE
-      ret = io_uring_register_files(&ring, fixed_fds, MAX_FDS + 1);
+      ret = io_uring_register_files(&ring, fixed_fds, 2);
       if (ret < 0) 
       {
             printf("reg failed %d\n", ret);
