@@ -34,12 +34,13 @@ typedef unsigned long int longword;
 
 #define AT_FDCWD -100
 
-#define MAX_FDS 32
+#define MAX_FDS 1
+#define MAX_FILES 32
 
 typedef struct _ebpf_context
 {
       char buffer[BUFFER_SIZE]; //Kann in Anwendung.
-      char *paths_userspace_ptr[MAX_FDS];
+      char *paths_userspace_ptr[MAX_FILES];
       char *buffer_userspace_ptr;
       unsigned int nr_of_files;
       unsigned int current_file_idx;
