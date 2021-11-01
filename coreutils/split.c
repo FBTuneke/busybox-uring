@@ -203,7 +203,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	}
 
       struct io_uring_params params;
-      uint32_t cq_sizes[4] = {128, 128, 128, 128};
+      uint32_t cq_sizes[4] = {READ_BUFFER_SIZE, READ_BUFFER_SIZE, READ_BUFFER_SIZE, READ_BUFFER_SIZE};
       struct bpf_object *bpf_obj;
       struct bpf_program *bpf_prog;
       const char *name_object_file, *name;
@@ -219,7 +219,7 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       params.nr_cq = ARRAY_SIZE(cq_sizes); //Anzahl von zusätzlichen Completion Queues???
 	params.cq_sizes = (__u64)(unsigned long)cq_sizes; //will hier wohl einen Pointer?! 
 
-      if (io_uring_queue_init_params(128, &ring, &params) < 0)
+      if (io_uring_queue_init_params(READ_BUFFER_SIZE, &ring, &params) < 0)
       {
             perror("io_uring_init_failed...\n");
             exit(1);
@@ -413,21 +413,20 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 	// if(ret != 0)
       //       printf("Error bpf_obj_get_info_by_fd(): %i\n", ret);
       
-      char *fullPath;
-      char *fileName = "/split-bpf-log.txt";
-      fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
-      strcpy(fullPath, getenv("HOME"));
-      strcat(fullPath, fileName);
-
-      FILE *f;
-      f = fopen(fullPath, "a");
+      // FILE *f;
+      // char *fullPath;
+      // char *fileName = "/split-bpf-log.txt";
+      // fullPath = malloc(strlen(getenv("HOME") + strlen(fileName)) + 1); // to account for NULL terminator
+      // strcpy(fullPath, getenv("HOME"));
+      // strcat(fullPath, fileName);
+      // f = fopen(fullPath, "a");
 
       // clock_t end = clock();
       // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
       printf("Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);
-      fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
+      // fprintf(f, "Verbrauchte Zeit fuer das Laden und Oeffnen des BPF-Programms: %.3f in Sekunden\n", time_spent_loading_bpf_prog);      
       printf("Verbrauchte Zeit fuer das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
-      fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
+      // fprintf(f, "Verbrauchte Zeit für das eigentliche Splitting: %.3f in Sekunden\n", time_spent_split);
       // printf("Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // fprintf(f, "Jited prog instructions: %llu\n", bpf_info.jited_prog_insns);
       // printf("Jited prog length: %u\n", bpf_info.jited_prog_len);
@@ -444,9 +443,14 @@ int split_main(int argc UNUSED_PARAM, char **argv)
       // fprintf(f, "run time ns: %llu\n", bpf_info.run_time_ns);
 
       printf("\n======END======\n");
-      fprintf(f, "\n======END======\n");
+      // fprintf(f, "\n======END======\n");
 
-      fclose(f);
+      // fclose(f);
+      
+      munmap(mmapped_context_map_ptr, map_sz); //Noetig?
+      bpf_object__unload(bpf_obj);
+      bpf_object__close(bpf_obj);
+      io_uring_queue_exit(&ring);
 
       return EXIT_SUCCESS;
 
