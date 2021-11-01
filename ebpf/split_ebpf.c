@@ -73,7 +73,7 @@ static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 }
 
 uint32_t bytes_read = 0;
-uint32_t to_write = 0;
+uint32_t to_write = 0; //Kann auch in split_callback als lokale variable
 uint32_t offset_read = 0;
 uint32_t offset_write = 0;
 off_t remaining = 0;
@@ -119,9 +119,9 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
             }
 
             if (i + 1 > context->suffix_len) //Filenamen aufgebraucht!
-            {
-                  return 0;
+            {           
                   bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, SUFFIX_EXHAUSTED, 11187, 0);
+                  return 0;
             }
 
             context->pfx_buffer[backwards_index & NAME_MAX] = 'a';
@@ -177,7 +177,7 @@ int split(struct io_uring_bpf_ctx *ctx)
             }
 
             bytes_read = cqe.res;
-            context->read_buffer_base_int = (longword)context->read_buffer; //TODO: Nur ein mal im Userspace machen.
+            context->read_buffer_base_int = (longword)context->read_buffer; 
             global_read_buffer_offset = 0;
             offset_read += cqe.res;
       }

@@ -43,13 +43,13 @@ typedef unsigned long int longword;
 
 typedef struct _ebpf_context
 {
-      char read_buffer[READ_BUFFER_SIZE];
+      char read_buffer[READ_BUFFER_SIZE]; //Kann in Anwendung
       off_t cnt; //number of lines to split by
       char *read_buffer_userspace_base_ptr;
       char pfx_buffer[NAME_MAX + 1]; //NAME_MAX ist von busybox = 255.
       char *pfx_buffer_userspace_base_ptr;
       uint16_t suffix_len;
-      uint16_t pfx_len;
+      uint16_t pfx_len; //out file name length
       longword read_buffer_base_int; //ARGH! Verifier erlaubt keine modulo-Operation auf Addressen, also erst in Variable speichern. In normaler Stack-Variable meckert er auch. Aus der Map geht's klar.
       unsigned int fixed_fd;
 } ebpf_context_t;
