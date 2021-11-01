@@ -81,26 +81,18 @@ been enabled, more detailed usage information will also be available.
 
 Currently available applets include:
 
-	basename, cat, echo, sleep, split
+	cat, echo, sh, sleep, split, zcat
 
 =head1 COMMAND DESCRIPTIONS
 
 =over 4
 
-=item B<basename>
-
-basename FILE [SUFFIX]
-
-Strip directory path and .SUFFIX from FILE
-
 =item B<cat>
 
-cat [-nbvteA] [FILE]...
+cat [-vteA] [FILE]...
 
 Print FILEs to stdout
 
-	-n	Number output lines
-	-b	Number nonempty lines
 	-v	Show nonprinting characters as ^x or M-x
 	-t	...and tabs as ^I
 	-e	...and end lines with $
@@ -108,20 +100,21 @@ Print FILEs to stdout
 
 =item B<echo>
 
-echo [-neE] [ARG]...
+echo [ARG]...
 
 Print the specified ARGs to stdout
 
-	-n	Suppress trailing newline
-	-e	Interpret backslash escapes (i.e., \t=tab)
-	-E	Don't interpret backslash escapes (default)
+=item B<sh>
+
+sh [-/+OPTIONS] [-/+o OPT]... [-c 'SCRIPT' [ARG0 [ARGS]] / FILE [ARGS] / -s [ARGS]]
+
+Unix shell interpreter
 
 =item B<sleep>
 
-sleep [N]...
+sleep N
 
-Pause for a time equal to the total of the args given, where each arg can
-have an optional suffix of (s)econds, (m)inutes, (h)ours, or (d)ays
+Pause for N seconds
 
 =item B<split>
 
@@ -130,6 +123,12 @@ split [OPTIONS] [INPUT [PREFIX]]
 	-b N[k|m]	Split by N (kilo|mega)bytes
 	-l N		Split by N lines
 	-a N		Use N letters as suffix
+
+=item B<zcat>
+
+zcat [FILE]...
+
+Decompress to stdout
 
 =back
 

@@ -6,13 +6,14 @@
  */
 //kbuild:lib-y += bb_cat.o
 
-#include "../include/libbb.h"
+#include "../include/common.h"
+#include "liburing.h"
 #include "../include/cat_common.h"
 #include "../../linux/tools/lib/bpf/libbpf.h"
 #include "../../linux/tools/lib/bpf/bpf.h"
-#include "liburing.h"
 #include <time.h>
 #include <sys/stat.h>
+#include <limits.h>
 
 #define NR_OF_BPF_PROGS 1
 
@@ -85,8 +86,8 @@ int FAST_FUNC bb_cat(char **argv, int argc)
       struct timeval begin, end;
       gettimeofday(&begin, 0);
 
-      bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
-      // bpf_obj = bpf_object__open("cat_ebpf.o");
+      //bpf_obj = bpf_object__open("/mnt/busybox-uring/cat_ebpf.o");
+      bpf_obj = bpf_object__open("/home/tuneke/busybox-uring/cat_ebpf.o");
 
       ret = bpf_object__load(bpf_obj);
       if(ret < 0)

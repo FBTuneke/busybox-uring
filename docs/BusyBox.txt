@@ -76,40 +76,32 @@ COMMON OPTIONS
 COMMANDS
     Currently available applets include:
 
-            basename, cat, echo, sleep, split
+            cat, echo, sh, sleep, split, zcat
 
 COMMAND DESCRIPTIONS
-    basename
-        basename FILE [SUFFIX]
-
-        Strip directory path and .SUFFIX from FILE
-
-    cat cat [-nbvteA] [FILE]...
+    cat cat [-vteA] [FILE]...
 
         Print FILEs to stdout
 
-                -n      Number output lines
-                -b      Number nonempty lines
                 -v      Show nonprinting characters as ^x or M-x
                 -t      ...and tabs as ^I
                 -e      ...and end lines with $
                 -A      Same as -vte
 
     echo
-        echo [-neE] [ARG]...
+        echo [ARG]...
 
         Print the specified ARGs to stdout
 
-                -n      Suppress trailing newline
-                -e      Interpret backslash escapes (i.e., \t=tab)
-                -E      Don't interpret backslash escapes (default)
+    sh  sh [-/+OPTIONS] [-/+o OPT]... [-c 'SCRIPT' [ARG0 [ARGS]] / FILE
+        [ARGS] / -s [ARGS]]
+
+        Unix shell interpreter
 
     sleep
-        sleep [N]...
+        sleep N
 
-        Pause for a time equal to the total of the args given, where each
-        arg can have an optional suffix of (s)econds, (m)inutes, (h)ours, or
-        (d)ays
+        Pause for N seconds
 
     split
         split [OPTIONS] [INPUT [PREFIX]]
@@ -117,6 +109,11 @@ COMMAND DESCRIPTIONS
                 -b N[k|m]       Split by N (kilo|mega)bytes
                 -l N            Split by N lines
                 -a N            Use N letters as suffix
+
+    zcat
+        zcat [FILE]...
+
+        Decompress to stdout
 
 LIBC NSS
     GNU Libc (glibc) uses the Name Service Switch (NSS) to configure the

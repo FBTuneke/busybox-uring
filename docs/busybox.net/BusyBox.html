@@ -60,30 +60,20 @@
 
 <p>Currently available applets include:</p>
 
-<pre><code>        basename, cat, echo, sleep, split</code></pre>
+<pre><code>        cat, echo, sh, sleep, split, zcat</code></pre>
 
 <h1 id="COMMAND-DESCRIPTIONS">COMMAND DESCRIPTIONS</h1>
 
 <dl>
 
-<dt id="basename"><b>basename</b></dt>
-<dd>
-
-<p>basename FILE [SUFFIX]</p>
-
-<p>Strip directory path and .SUFFIX from FILE</p>
-
-</dd>
 <dt id="cat"><b>cat</b></dt>
 <dd>
 
-<p>cat [-nbvteA] [FILE]...</p>
+<p>cat [-vteA] [FILE]...</p>
 
 <p>Print FILEs to stdout</p>
 
-<pre><code>        -n      Number output lines
-        -b      Number nonempty lines
-        -v      Show nonprinting characters as ^x or M-x
+<pre><code>        -v      Show nonprinting characters as ^x or M-x
         -t      ...and tabs as ^I
         -e      ...and end lines with $
         -A      Same as -vte</code></pre>
@@ -92,21 +82,25 @@
 <dt id="echo"><b>echo</b></dt>
 <dd>
 
-<p>echo [-neE] [ARG]...</p>
+<p>echo [ARG]...</p>
 
 <p>Print the specified ARGs to stdout</p>
 
-<pre><code>        -n      Suppress trailing newline
-        -e      Interpret backslash escapes (i.e., \t=tab)
-        -E      Don&#39;t interpret backslash escapes (default)</code></pre>
+</dd>
+<dt id="sh"><b>sh</b></dt>
+<dd>
+
+<p>sh [-/+OPTIONS] [-/+o OPT]... [-c &#39;SCRIPT&#39; [ARG0 [ARGS]] / FILE [ARGS] / -s [ARGS]]</p>
+
+<p>Unix shell interpreter</p>
 
 </dd>
 <dt id="sleep"><b>sleep</b></dt>
 <dd>
 
-<p>sleep [N]...</p>
+<p>sleep N</p>
 
-<p>Pause for a time equal to the total of the args given, where each arg can have an optional suffix of (s)econds, (m)inutes, (h)ours, or (d)ays</p>
+<p>Pause for N seconds</p>
 
 </dd>
 <dt id="split"><b>split</b></dt>
@@ -117,6 +111,14 @@
 <pre><code>        -b N[k|m]       Split by N (kilo|mega)bytes
         -l N            Split by N lines
         -a N            Use N letters as suffix</code></pre>
+
+</dd>
+<dt id="zcat"><b>zcat</b></dt>
+<dd>
+
+<p>zcat [FILE]...</p>
+
+<p>Decompress to stdout</p>
 
 </dd>
 </dl>
