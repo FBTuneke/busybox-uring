@@ -97,7 +97,7 @@ int open_callback(struct io_uring_bpf_ctx *ctx)
       if(cqe.res >= 0)
       {
 #ifdef IO_URING_FIXED_FILE
-            context->fixed_fd = context->current_file_idx;
+            // context->fixed_fd = context->current_file_idx;
 #else      
             context->fd = cqe.res;
 #endif
@@ -187,6 +187,28 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
       else if (cqe.res == 0) //end of file
       {
             context->current_file_idx++;
+#ifdef IO_URING_FIXED_FILE
+            if (context->current_file_idx == context->nr_of_files) //Done, only end program when last file is closed
+            {
+                  bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, CAT_COMPLETE, 22222, 0);
+            }
+            else //Open new file
+            {
+                  // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, context->current_file_idx, 0);
+                  io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FILES - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
+                  sqe.cq_idx = OPEN_CQ_IDX;
+                  sqe.user_data = 6879;
+                  sqe.flags = IOSQE_IO_HARDLINK;
+
+                  sqe.file_index = 0 + 1; // codiert als +1 in uring. Haben keine Funktionen hier die das schon machen => selber 1 addieren.
+                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+
+                  io_uring_prep_bpf(&sqe, OPEN_PROG_IDX, 0);
+                  sqe.cq_idx = SINK_CQ_IDX;
+                  sqe.user_data = 2004;
+                  bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+            }
+#endif
 
             // iouring_emit_cqe(ctx, DEFAULT_CQ_IDX, 33333, 33333, 0);
 #ifndef IO_URING_FIXED_FILE
@@ -195,16 +217,12 @@ int read_callback(struct io_uring_bpf_ctx *ctx)
             sqe.user_data = 587;
             sqe.flags = IOSQE_IO_HARDLINK;
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
-#endif
 
             io_uring_prep_bpf(&sqe, CLOSE_PROG_IDX, 0);
-#ifdef IO_URING_FIXED_FILE
-            sqe.cq_idx = CLOSE_CQ_IDX;
-#else
             sqe.cq_idx = SINK_CQ_IDX;
-#endif
             sqe.user_data = 2004;
             bpf_io_uring_submit(ctx, &sqe, sizeof(sqe));
+#endif
       }
       else //error read-sqe
       {
@@ -292,7 +310,7 @@ int close_callback(struct io_uring_bpf_ctx *ctx)
       else //Open new file
       {
             // bpf_io_uring_emit_cqe(ctx, DEFAULT_CQ_IDX, 44444, context->current_file_idx, 0);
-            io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FDS - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
+            io_uring_prep_openat(&sqe, AT_FDCWD, context->paths_userspace_ptr[context->current_file_idx & (MAX_FILES - 1)], O_RDONLY, S_IRUSR | S_IWUSR);
             sqe.cq_idx = OPEN_CQ_IDX;
             sqe.user_data = 6879;
             sqe.flags = IOSQE_IO_HARDLINK;
